@@ -27,6 +27,7 @@ import type { Identity, ParsedReceipt, ReceiptItem, Room, SessionResponse } from
 import { calculateSettlement } from '../shared/settlement';
 import { createItemId } from '../shared/id';
 import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession } from './api';
+import CameraCapture from './CameraCapture';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
@@ -75,15 +76,23 @@ export default function App() {
   const [scan, setScan] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [help, setHelp] = useState(false);
-  const camera = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const activeScan = useRef<AbortController | null>(null);
   const gallery = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handler = () => {
+      activeScan.current?.abort();
+      setCameraOpen(false);
+      setPhoto(undefined);
       setPath(location.pathname);
       setDraft(undefined);
     };
     window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      activeScan.current?.abort();
+      activeScan.current = null;
+    };
   }, []);
   useEffect(
     () => () => {
@@ -92,6 +101,9 @@ export default function App() {
     [photo],
   );
   const navigate = (next: string) => {
+    activeScan.current?.abort();
+    setCameraOpen(false);
+    setPhoto(undefined);
     history.pushState(null, '', next);
     setPath(next);
     setDraft(undefined);
@@ -99,24 +111,31 @@ export default function App() {
     window.scrollTo(0, 0);
   };
   const importPhoto = async (file?: File) => {
-    if (!file) return;
+    if (!file || activeScan.current) return;
+    const controller = new AbortController();
+    activeScan.current = controller;
+    setCameraOpen(false);
+    setPhoto(undefined);
+    if (gallery.current) gallery.current.value = '';
     setError('');
     setScan(0);
     try {
       const { recognizeReceipt } = await import('./ocr');
-      const result = await recognizeReceipt(file, setScan);
-      setPhoto(URL.createObjectURL(file));
+      const { receipt: result, preview } = await recognizeReceipt(file, setScan, controller.signal);
+      if (controller.signal.aborted) return;
+      setPhoto(URL.createObjectURL(preview));
       setDraft(result.items.length ? result : { ...result, items: [newItem()] });
       if (!result.items.length)
         setError(
           '品目を読み取れませんでした。写真を見ながら入力するか、明るい場所で撮り直してください。',
         );
     } catch (e) {
-      setError(errorText(e));
+      if (!controller.signal.aborted) setError(errorText(e));
     } finally {
-      setScan(null);
-      if (camera.current) camera.current.value = '';
-      if (gallery.current) gallery.current.value = '';
+      if (activeScan.current === controller) {
+        activeScan.current = null;
+        setScan(null);
+      }
     }
   };
   const roomId = /^\/r\/([\w-]+)$/.exec(path)?.[1];
@@ -131,14 +150,6 @@ export default function App() {
           </button>
         </div>
       </header>
-      <input
-        hidden
-        ref={camera}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        capture="environment"
-        onChange={(e) => void importPhoto(e.target.files?.[0])}
-      />
       <input
         hidden
         ref={gallery}
@@ -156,6 +167,7 @@ export default function App() {
           setError={setError}
           onBack={() => {
             setDraft(undefined);
+            setPhoto(undefined);
             setError('');
           }}
           onCreated={(data) => {
@@ -264,7 +276,7 @@ export default function App() {
                   <>
                     <h3>文字も金額も、自動で読み取り</h3>
                     <p>写真をここにドロップしてもOK</p>
-                    <button className="button primary full" onClick={() => camera.current?.click()}>
+                    <button className="button primary full" onClick={() => setCameraOpen(true)}>
                       <Camera size={19} />
                       レシートを撮る
                     </button>
@@ -382,6 +394,16 @@ export default function App() {
         <p>楽しい時間に、気持ちのいいしめくくりを。</p>
         <span className="footer-label">MADE FOR SHARING</span>
       </footer>
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={(file) => void importPhoto(file)}
+          onClose={() => setCameraOpen(false)}
+          onPickPhoto={() => {
+            setCameraOpen(false);
+            gallery.current?.click();
+          }}
+        />
+      )}
       {help && (
         <Modal title="レシわけの使い方" onClose={() => setHelp(false)}>
           <ol className="help-list">
