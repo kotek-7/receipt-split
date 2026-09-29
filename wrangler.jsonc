@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reciwake",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-29",
+  "workers_dev": false,
+  "routes": [{ "pattern": "reciwake.kotek7.com", "custom_domain": true }],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"],
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "ReceiptRoom" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReceiptRoom"] }],
+}
