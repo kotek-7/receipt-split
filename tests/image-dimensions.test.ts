@@ -134,8 +134,18 @@ function replaceGlobal(t: TestContext, name: string, value: unknown) {
 
 test('preparation requests a resized oriented bitmap and releases it and the canvas', async (t) => {
   let closed = 0;
+  let decoded = 0;
   const result = new Blob(['small preview'], { type: 'image/png' });
   const bitmap = { close: () => closed++ };
+  const probe = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      fillRect() {},
+      drawImage() {},
+      getImageData: () => ({ data: new Uint8ClampedArray(384 * 512 * 4) }),
+    }),
+  };
   const canvas = {
     width: 0,
     height: 0,
@@ -148,19 +158,90 @@ test('preparation requests a resized oriented bitmap and releases it and the can
     }),
     toBlob(callback: (blob: Blob) => void, type: string) {
       assert.equal(type, 'image/png');
-      assert.equal(closed, 1);
+      assert.equal(closed, 2);
       callback(result);
     },
   };
   replaceGlobal(t, 'createImageBitmap', async (_file: File, options: ImageBitmapOptions) => {
     assert.equal(options.imageOrientation, 'from-image');
-    assert.deepEqual([options.resizeWidth, options.resizeHeight], [1200, 1600]);
+    assert.deepEqual(
+      [options.resizeWidth, options.resizeHeight],
+      decoded++ === 0 ? [384, 512] : [1200, 1600],
+    );
+    if (decoded === 2) assert.deepEqual([probe.width, probe.height], [0, 0]);
     return bitmap;
   });
-  replaceGlobal(t, 'document', { createElement: () => canvas });
+  replaceGlobal(t, 'document', { createElement: () => (decoded === 1 ? probe : canvas) });
   const photo = new File([jpeg(4032, 3024, 6)], 'photo.jpg', { type: 'image/jpeg' });
   assert.equal(await prepareReceiptImage(photo), result);
-  assert.equal(closed, 1);
+  assert.equal(closed, 2);
+  assert.deepEqual([canvas.width, canvas.height], [0, 0]);
+});
+
+test('paper detection decodes only a thumbnail and bounded crop, keeping print inside a white mask', async (t) => {
+  let decoded = 0;
+  let closed = 0;
+  const events: string[] = [];
+  const pixels = new Uint8ClampedArray(384 * 512 * 4);
+  for (let y = 0; y < 512; y++) {
+    for (let x = 0; x < 384; x++) {
+      const paper = x >= 100 && x < 280 && y >= 40 && y < 480;
+      const value = paper ? 230 : 30;
+      pixels.set([value, value, value, 255], (y * 384 + x) * 4);
+    }
+  }
+  const probe = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      fillRect() {},
+      drawImage() {},
+      getImageData: () => ({ data: pixels }),
+    }),
+  };
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      fillRect() {
+        events.push('white');
+      },
+      save() {},
+      beginPath() {},
+      moveTo() {},
+      lineTo() {},
+      closePath() {},
+      clip() {
+        events.push('clip');
+      },
+      drawImage() {
+        events.push('draw');
+      },
+      restore() {},
+    }),
+    toBlob(callback: (blob: Blob) => void) {
+      callback(new Blob(['cropped'], { type: 'image/png' }));
+    },
+  };
+  replaceGlobal(t, 'document', { createElement: () => (decoded === 1 ? probe : canvas) });
+  replaceGlobal(t, 'createImageBitmap', async (...args: unknown[]) => {
+    decoded++;
+    if (decoded === 2) {
+      assert.equal(closed, 1);
+      assert.deepEqual([probe.width, probe.height], [0, 0]);
+      assert.equal(args.length, 6, 'crop before retaining decoded pixels');
+      const [x, y, width, height] = args.slice(1, 5) as number[];
+      assert.ok(x > 0 && y > 0 && width < 3024 && height < 4032);
+      const options = args[5] as ImageBitmapOptions;
+      assert.ok(options.resizeWidth! * options.resizeHeight! <= 1_920_000);
+    }
+    return { close: () => closed++ };
+  });
+  const photo = new File([jpeg(4032, 3024, 6)], 'photo.jpg', { type: 'image/jpeg' });
+  assert.equal((await prepareReceiptImage(photo)).type, 'image/png');
+  assert.equal(decoded, 2);
+  assert.equal(closed, 2);
+  assert.deepEqual(events, ['white', 'clip', 'draw']);
   assert.deepEqual([canvas.width, canvas.height], [0, 0]);
 });
 
@@ -192,6 +273,35 @@ test('cancellation during bitmap decoding closes the returned bitmap before draw
   assert.equal(closed, 1);
 });
 
+test('cancellation during the final decode releases both images and the thumbnail canvas', async (t) => {
+  const controller = new AbortController();
+  let decoded = 0;
+  let closed = 0;
+  const probe = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      fillRect() {},
+      drawImage() {},
+      getImageData: () => ({ data: new Uint8ClampedArray(384 * 512 * 4) }),
+    }),
+  };
+  replaceGlobal(t, 'createImageBitmap', async () => {
+    if (++decoded === 2) controller.abort();
+    return { close: () => closed++ };
+  });
+  replaceGlobal(t, 'document', {
+    createElement() {
+      assert.equal(decoded, 1, 'no final canvas after cancellation');
+      return probe;
+    },
+  });
+  const photo = new File([jpeg(3024, 4032)], 'photo.jpg', { type: 'image/jpeg' });
+  await assert.rejects(prepareReceiptImage(photo, controller.signal), { name: 'AbortError' });
+  assert.equal(closed, 2);
+  assert.deepEqual([probe.width, probe.height], [0, 0]);
+});
+
 test('a failed canvas draw releases both bitmap and allocated canvas', async (t) => {
   let closed = 0;
   replaceGlobal(t, 'createImageBitmap', async () => ({ close: () => closed++ }));
@@ -207,7 +317,13 @@ test('a failed canvas draw releases both bitmap and allocated canvas', async (t)
   };
   replaceGlobal(t, 'document', { createElement: () => canvas });
   const photo = new File([jpeg(4032, 3024)], 'photo.jpg', { type: 'image/jpeg' });
-  await assert.rejects(prepareReceiptImage(photo), /drawing failed/);
+  await assert.rejects(
+    prepareReceiptImage(photo),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.cause instanceof Error &&
+      error.cause.message === 'drawing failed',
+  );
   assert.equal(closed, 1);
   assert.deepEqual([canvas.width, canvas.height], [0, 0]);
 });

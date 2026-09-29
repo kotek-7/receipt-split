@@ -154,3 +154,188 @@ A\Bセット               \1,100
   assert.equal(receipt.total, 1876, 'explicit total, including tax and discount, wins');
   assert.deepEqual(entries(String.raw`\500`), []);
 });
+
+test('quantity and unit-price continuation rows belong to the preceding product', () => {
+  assert.deepEqual(entries('おにぎり\n3コX単138 ¥414\nお茶\n2個×単価138 ¥276\nパン ¥148'), [
+    { name: 'おにぎり', amount: 414 },
+    { name: 'お茶', amount: 276 },
+    { name: 'パン', amount: 148 },
+  ]);
+});
+
+test('quantity continuations tolerate fullwidth spacing and common multiplication OCR errors', () => {
+  const rows = [
+    '３ コ Ｘ 単 価 ￥１３８ ￥４１４',
+    '3個×単価138円 414円',
+    '3点x単138 414',
+    '3コ X B138 ¥414',
+    '3コメX単138 ¥414',
+    '3コメ単138 \\414',
+  ];
+  for (const row of rows) {
+    assert.deepEqual(
+      entries(`商品\n${row}\n別の商品 ¥100`),
+      [
+        { name: '商品', amount: 414 },
+        { name: '別の商品', amount: 100 },
+      ],
+      row,
+    );
+  }
+});
+
+test('an explicit quantity row total wins over unit multiplication, including on the next line', () => {
+  assert.deepEqual(
+    entries('セット割商品\n3コX単138 ¥400\nまとめ商品\n2個×単価138\n¥270\n普通の商品 ¥100'),
+    [
+      { name: 'セット割商品', amount: 400 },
+      { name: 'まとめ商品', amount: 270 },
+      { name: '普通の商品', amount: 100 },
+    ],
+  );
+});
+
+test('quantity times unit price is used when no row total is printed', () => {
+  const receipt = parseReceipt('おにぎり\n3コX単138\nお茶\n2個×単価138\n合計690');
+  assert.deepEqual(
+    receipt.items.map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: 'おにぎり', amount: 414 },
+      { name: 'お茶', amount: 276 },
+    ],
+  );
+  assert.equal(receipt.total, 690);
+  assert.deepEqual(entries('最後の商品\n2点X単1, 200'), [{ name: '最後の商品', amount: 2400 }]);
+});
+
+test('quantity details after an already priced product do not duplicate its amount', () => {
+  assert.deepEqual(
+    entries('お茶 ¥276\n2コX単138 ¥276\nパン ¥148\nおにぎり ¥414\n3コX単138\n¥414\n合計838'),
+    [
+      { name: 'お茶', amount: 276 },
+      { name: 'パン', amount: 148 },
+      { name: 'おにぎり', amount: 414 },
+    ],
+  );
+});
+
+test('an incomplete quantity row does not consume or rename the following product', () => {
+  assert.deepEqual(
+    entries('読み取れなかった商品\n2コX単\n次の商品 ¥200\n最後の商品\n2コX単\n¥276'),
+    [
+      { name: '次の商品', amount: 200 },
+      { name: '最後の商品', amount: 276 },
+    ],
+  );
+});
+
+test('category markers are removed while actual names and package numbers are kept', () => {
+  assert.deepEqual(
+    entries(
+      'A 飲料350m\n2コX単118 ¥236\nB# 食品350\n2個×単138 ¥276\n# Aセット ¥100\nBEEF ¥200\n商品 3コX単138 ¥414',
+    ),
+    [
+      { name: '飲料350m', amount: 236 },
+      { name: '食品350', amount: 276 },
+      { name: 'Aセット', amount: 100 },
+      { name: 'BEEF', amount: 200 },
+      { name: '商品', amount: 414 },
+    ],
+  );
+});
+
+test('spaced thousands separators remain a single price including payable totals', () => {
+  const receipt = parseReceipt('食品 ¥1, 200\n飲料 2, 300円\n合計 ¥3, 500');
+  assert.deepEqual(
+    receipt.items.map((item) => item.amount),
+    [1200, 2300],
+  );
+  assert.equal(receipt.total, 3500);
+});
+
+test('unreadable total and payment amounts do not fabricate leading digits or create products', () => {
+  const receipt = parseReceipt('食品 ¥498\nお茶 ¥276\n合計 ギ\\クンク, 973\nクレジット ¥,973');
+  assert.deepEqual(
+    receipt.items.map((item) => item.amount),
+    [498, 276],
+  );
+  assert.equal(receipt.total, 774, 'only the known item sum is available');
+});
+
+test('attached totals require a complete total label, not a numeric tail in OCR noise', () => {
+  for (const malformed of ['合計 yl.e00', 'TOTAL yl.e00', '合計1.600', 'TOTAL1.600']) {
+    const receipt = parseReceipt(`パン ¥400\n茶 ¥300\n${malformed}`);
+    assert.deepEqual(
+      receipt.items.map((item) => item.amount),
+      [400, 300],
+      malformed,
+    );
+    assert.equal(receipt.total, 700, malformed);
+  }
+  for (const valid of ['合計1600', 'total1600', '合 計1600', '税込み合計1600']) {
+    assert.equal(parseReceipt(`食品 ¥1500\n${valid}`).total, 1600, valid);
+  }
+});
+
+test('a separate trailing Y currency token can be an OCR yen sign', () => {
+  const receipt = parseReceipt('食品 Y98\n茶 y450\n菓子\nY414\n飲料\n2コX単138 y276\n合計 Y1, 600');
+  assert.deepEqual(
+    receipt.items.map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: '食品', amount: 98 },
+      { name: '茶', amount: 450 },
+      { name: '菓子', amount: 414 },
+      { name: '飲料', amount: 276 },
+    ],
+  );
+  assert.equal(receipt.total, 1600);
+});
+
+test('Y inside a product code is not currency and malformed OCR totals stay unreadable', () => {
+  const receipt = parseReceipt('型番Y98\n¥200\n食品350\n¥100\nBEEF ¥300\n合計 yl.e00');
+  assert.deepEqual(
+    receipt.items.map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: '型番Y98', amount: 200 },
+      { name: '食品350', amount: 100 },
+      { name: 'BEEF', amount: 300 },
+    ],
+  );
+  assert.equal(receipt.total, 600);
+  assert.deepEqual(entries('型番Y98\n食品350\nY414'), [{ name: '食品350', amount: 414 }]);
+});
+
+test('mixed supermarket rows, category markers, discount and tax preserve twelve products', () => {
+  const receipt = parseReceipt(`食品店
+# 食品い ¥498
+# 食品ろ
+3コ X B138 ¥414
+# 食品は
+2コメX単138 ¥276
+# 食品に ¥148
+# 食品ほ ¥198
+# 食品へ
+2コメ単138 ¥276
+# 食品と ¥198
+# 食品ち ¥100
+# 食品り ¥108
+# 食品ぬ ¥218
+A 飲料350m
+2コX単118 ¥236
+B# 食品る ¥98
+A まとめ値引 5% -23
+小計 ¥2, 745
+8%対象 ¥2, 319
+消費税8% ¥185
+10%対象 ¥426
+消費税10% ¥43
+合計 ¥2, 973
+現金 ¥3, 000`);
+  assert.deepEqual(
+    receipt.items.map((item) => item.amount),
+    [498, 414, 276, 148, 198, 276, 198, 100, 108, 218, 236, 98],
+  );
+  assert.equal(receipt.items.length, 12);
+  assert.equal(receipt.total, 2973);
+  assert.ok(receipt.items.every((item) => !/^\d+(?:コ|個|点)/.test(item.name)));
+});
