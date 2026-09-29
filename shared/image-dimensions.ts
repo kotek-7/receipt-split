@@ -1,6 +1,7 @@
 export type ImageDimensions = { width: number; height: number };
 
-export const RECEIPT_IMAGE_MAX_EDGE = 1600;
+// Tall receipts need vertical detail; the pixel budget still bounds decoded memory.
+export const RECEIPT_IMAGE_MAX_EDGE = 3200;
 export const RECEIPT_IMAGE_MAX_PIXELS = 1_920_000;
 
 /** Keep the aspect ratio and never enlarge a source image. */

@@ -132,3 +132,25 @@ test('negative currency amounts work regardless of sign position', () => {
   assert.equal(receipt.total, 650);
   assert.equal(receipt.items.length, 1);
 });
+
+test('OCR yen backslashes belong to the price column, not to Japanese item names', () => {
+  const receipt = parseReceipt(
+    String.raw`食品館
+ほうれん草              \158
+国産豚こま切れ           \498
+A\Bセット               \1,100
+値引 -\50
+合計\1,876
+現金\2,000`,
+  );
+  assert.deepEqual(
+    receipt.items.map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: 'ほうれん草', amount: 158 },
+      { name: '国産豚こま切れ', amount: 498 },
+      { name: String.raw`A\Bセット`, amount: 1100 },
+    ],
+  );
+  assert.equal(receipt.total, 1876, 'explicit total, including tax and discount, wins');
+  assert.deepEqual(entries(String.raw`\500`), []);
+});

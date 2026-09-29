@@ -2,7 +2,7 @@ import type { ParsedReceipt, ReceiptItem } from './types.ts';
 import { createItemId } from './id.ts';
 
 const TOTAL =
-  /^(?:(?:ご|お)?(?:請求|支払い?|会計)(?:金額|額|合計)?|(?:お買上げ?|お買い上げ)(?:金額|合計)|(?:税込み?|総)?合計(?:金額)?|現計|総額|grandtotal|total|amountdue)(?:[:：\s]|[¥\d]|$)/i;
+  /^(?:(?:ご|お)?(?:請求|支払い?|会計)(?:金額|額|合計)?|(?:お買上げ?|お買い上げ)(?:金額|合計)|(?:税込み?|総)?合計(?:金額)?|現計|総額|grandtotal|total|amountdue)(?:[:：\s]|[¥\\\d]|$)/i;
 const DISCOUNT = /値引|割引|クーポン|サービス値引|discount|coupon/i;
 const METADATA =
   /小計|消費税|税額|内税|外税|税抜|税率|課税|対象|預[かり]*|釣[り銭]*|現金|クレジット|カード|電子マネー|ポイント|残高|支払方法|領収|レシート|レジ(?!袋)|担当|責任者|取引|伝票|注文番号|受付|登録番号|会員|電話|住所|営業時間|お客様|お客さま|ご利用|ありがとうございました|またの|subtotal|tax|cash|change|visa|mastercard|amex|tel|fax|www\.|https?:|receipt|thank\s*you|balance|payment|auth|invoice/i;
@@ -41,11 +41,13 @@ function isTotal(line: string): boolean {
 /** Read the last price column, leaving earlier quantity/unit-price columns in the label. */
 function priceAtEnd(line: string): { label: string; amount: number } | null {
   const value = line
-    .replace(/-\s*([¥￥])/g, '$1-')
+    .replace(/-\s*([¥￥\\])/g, '$1-')
     .replace(/-\s+(?=\d)/g, '-')
     .replace(/\s*(?:\((?:税込|税別|内税|外税)\)|税込|税別)\s*$/, '')
     .replace(/\s*[*※軽内外]+\s*$/, '');
-  const match = value.match(/(?:[¥￥]\s*)?(-?\d[\d,]*)(?:\s*円)?\s*$/);
+  // Japanese yen glyphs are also commonly transcribed as a backslash by OCR.
+  // Only treat it as currency immediately before the final amount, never in names.
+  const match = value.match(/(?:[¥￥\\]\s*)?(-?\d[\d,]*)(?:\s*円)?\s*$/);
   if (!match || match.index === undefined) return null;
   const number = match[1].replace(/[\s,]/g, '');
   const amount = Number(number);

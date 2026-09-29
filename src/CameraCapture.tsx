@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Camera, ImagePlus, LoaderCircle, X } from 'lucide-react';
+import { readImageDimensions, resizeDimensions } from '../shared/image-dimensions.ts';
 import './camera.css';
 
 type CameraCaptureProps = {
@@ -7,6 +8,50 @@ type CameraCaptureProps = {
   onClose: () => void;
   onPickPhoto: () => void;
 };
+
+type PhotoRange = { min: number; max: number; step?: number };
+type PhotoSettings = { imageWidth: number; imageHeight: number };
+type StillCamera = {
+  takePhoto: (settings?: PhotoSettings) => Promise<Blob>;
+  getPhotoCapabilities?: () => Promise<{ imageWidth: PhotoRange; imageHeight: PhotoRange }>;
+};
+type StillCameraConstructor = new (track: MediaStreamTrack) => StillCamera;
+
+function desiredPhotoSize(width: PhotoRange, height: PhotoRange): PhotoSettings | undefined {
+  if (
+    ![width.min, width.max, height.min, height.max].every(
+      (value) => Number.isFinite(value) && value > 0,
+    ) ||
+    width.min > width.max ||
+    height.min > height.max
+  )
+    return undefined;
+  const scale = Math.min(1, Math.sqrt(3_000_000 / width.max / height.max));
+  const target = (range: PhotoRange) => {
+    const desired = Math.max(range.min, Math.floor(range.max * scale));
+    const step = range.step && Number.isFinite(range.step) && range.step > 0 ? range.step : 1;
+    return Math.max(
+      range.min,
+      Math.min(range.max, range.min + Math.floor((desired - range.min) / step) * step),
+    );
+  };
+  // The camera selects its closest supported size. prepareReceiptImage owns the pixel limit.
+  return { imageWidth: target(width), imageHeight: target(height) };
+}
+
+async function enableAutofocus(track: MediaStreamTrack) {
+  try {
+    const capabilities = track.getCapabilities?.() as
+      (MediaTrackCapabilities & { focusMode?: string[] }) | undefined;
+    if (capabilities?.focusMode?.includes('continuous')) {
+      await track.applyConstraints({
+        advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+      });
+    }
+  } catch {
+    // Focus controls are optional and some drivers reject their advertised capabilities.
+  }
+}
 
 function cameraError(error: unknown) {
   const name = error instanceof Error ? error.name : '';
@@ -72,6 +117,10 @@ export default function CameraCapture({ onCapture, onClose, onPickPhoto }: Camer
         stream.current = media;
         video.current.srcObject = media;
         await video.current.play();
+        if (!cancelled && !closed.current) {
+          const track = media.getVideoTracks()[0];
+          if (track) await enableAutofocus(track);
+        }
       } catch (error) {
         if (cancelled || closed.current) return;
         stopCamera();
@@ -115,40 +164,65 @@ export default function CameraCapture({ onCapture, onClose, onPickPhoto }: Camer
     capturing.current = true;
     setPending(true);
     setError('');
-    const canvas = document.createElement('canvas');
+    let canvas: HTMLCanvasElement | undefined;
     try {
-      const width = source.videoWidth;
-      const height = source.videoHeight;
-      const scale = Math.min(
-        1,
-        1600 / width,
-        1600 / height,
-        Math.sqrt((1600 * 1200) / (width * height)),
-      );
-      canvas.width = Math.max(1, Math.floor(width * scale));
-      canvas.height = Math.max(1, Math.floor(height * scale));
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('写真を作成できませんでした。もう一度お試しください。');
-      context.drawImage(source, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (result) =>
-            result
-              ? resolve(result)
-              : reject(new Error('写真を作成できませんでした。もう一度お試しください。')),
-          'image/jpeg',
-          0.88,
-        );
-      });
+      let blob: Blob | undefined;
+      const StillCamera = (globalThis as { ImageCapture?: StillCameraConstructor }).ImageCapture;
+      const track = stream.current?.getVideoTracks()[0];
+      if (StillCamera && track) {
+        try {
+          const camera = new StillCamera(track);
+          let settings: PhotoSettings | undefined;
+          try {
+            const capabilities = await camera.getPhotoCapabilities?.();
+            if (capabilities)
+              settings = desiredPhotoSize(capabilities.imageWidth, capabilities.imageHeight);
+          } catch {
+            // Taking a photo can work even when optional capability inspection does not.
+          }
+          if (closed.current) return;
+          const photo = await camera.takePhoto(settings);
+          if (closed.current) return;
+          const header = new Uint8Array(await photo.slice(0, 512 * 1024).arrayBuffer());
+          if (closed.current) return;
+          if (/^image\/(jpeg|png|webp)$/.test(photo.type) && readImageDimensions(header))
+            blob = photo;
+        } catch {
+          // Keep cameras without a working still-photo API usable through the video frame.
+        }
+      }
       if (closed.current) return;
-      const file = new File([blob], 'receipt.jpg', {
-        type: 'image/jpeg',
+      if (!blob) {
+        const size = resizeDimensions(source.videoWidth, source.videoHeight);
+        canvas = document.createElement('canvas');
+        canvas.width = size.width;
+        canvas.height = size.height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('写真を作成できませんでした。もう一度お試しください。');
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        blob = await new Promise<Blob>((resolve, reject) => {
+          canvas!.toBlob(
+            (result) =>
+              result
+                ? resolve(result)
+                : reject(new Error('写真を作成できませんでした。もう一度お試しください。')),
+            'image/png',
+          );
+        });
+      }
+      if (closed.current) return;
+      const extension =
+        blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/webp' ? 'webp' : 'png';
+      const file = new File([blob], `receipt.${extension}`, {
+        type: blob.type,
         lastModified: Date.now(),
       });
       // Release both the camera and canvas before recognition allocates its resources.
       stopCamera();
-      canvas.width = 0;
-      canvas.height = 0;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
       onCapture(file);
     } catch (error) {
       if (!closed.current)
@@ -156,8 +230,10 @@ export default function CameraCapture({ onCapture, onClose, onPickPhoto }: Camer
           error instanceof Error ? error.message : '撮影できませんでした。もう一度お試しください。',
         );
     } finally {
-      canvas.width = 0;
-      canvas.height = 0;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
       capturing.current = false;
       if (!closed.current) setPending(false);
     }
@@ -187,7 +263,7 @@ export default function CameraCapture({ onCapture, onClose, onPickPhoto }: Camer
         </button>
       </div>
       <p id={descriptionId} className="camera-instruction">
-        明るい場所で、レシート全体を写してください。
+        文字がはっきり見える距離で、レシートを大きく写してください。
       </p>
       <div className="camera-viewfinder" aria-busy={!ready && !error}>
         <video

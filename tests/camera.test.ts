@@ -37,14 +37,37 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function fakeStream(events: string[], name = 'camera') {
+function fakeStream(events: string[], name = 'camera', controls: Partial<MediaStreamTrack> = {}) {
+  const videoTrack = {
+    stop: () => events.push(`${name}:video stopped`),
+    ...controls,
+  };
   return {
-    getTracks: () => [
-      { stop: () => events.push(`${name}:video stopped`) },
-      { stop: () => events.push(`${name}:second track stopped`) },
-    ],
+    getTracks: () => [videoTrack, { stop: () => events.push(`${name}:second track stopped`) }],
+    getVideoTracks: () => [videoTrack],
   } as unknown as MediaStream;
 }
+
+function stillPhoto() {
+  // Complete JPEG SOF metadata: pixels are intentionally not decoded by the camera path.
+  return new Blob(
+    [
+      new Uint8Array([
+        255, 216, 255, 192, 0, 17, 8, 11, 208, 15, 160, 3, 1, 17, 0, 2, 17, 0, 3, 17, 0, 255, 217,
+      ]),
+    ],
+    { type: 'image/jpeg' },
+  );
+}
+
+type PhotoSize = { imageWidth: number; imageHeight: number };
+type TestStillCamera = new (track: MediaStreamTrack) => {
+  takePhoto: (settings?: PhotoSize) => Promise<Blob>;
+  getPhotoCapabilities?: () => Promise<{
+    imageWidth: { min: number; max: number; step?: number };
+    imageHeight: { min: number; max: number; step?: number };
+  }>;
+};
 
 async function mountCamera(
   t: TestContext,
@@ -53,6 +76,7 @@ async function mountCamera(
     encode?: (callback: BlobCallback) => void;
     strict?: boolean;
     events?: string[];
+    imageCapture?: TestStillCamera;
   } = {},
 ) {
   const window = new Window({ url: 'https://reciwake.example/' });
@@ -64,7 +88,7 @@ async function mountCamera(
     width: number;
     height: number;
     type: string;
-    quality: number;
+    quality?: number;
   }[] = [];
   const captures: File[] = [];
   const originals = new Map<string, PropertyDescriptor | undefined>();
@@ -73,6 +97,7 @@ async function mountCamera(
     document,
     navigator: window.navigator,
     IS_REACT_ACT_ENVIRONMENT: true,
+    ImageCapture: options.imageCapture,
   })) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
@@ -110,7 +135,7 @@ async function mountCamera(
         },
       };
     },
-    toBlob(this: HTMLCanvasElement, callback: BlobCallback, type: string, quality: number) {
+    toBlob(this: HTMLCanvasElement, callback: BlobCallback, type: string, quality?: number) {
       encoded.push({ canvas: this, width: this.width, height: this.height, type, quality });
       if (options.encode) options.encode(callback);
       else callback(new Blob(['receipt'], { type }));
@@ -132,7 +157,8 @@ async function mountCamera(
       events.push('capture');
       const video = host.querySelector('video');
       assert.equal(video?.srcObject, null, 'camera must be detached before OCR starts');
-      assert.equal(encoded.at(-1)?.canvas.width, 0, 'canvas must be released before OCR starts');
+      if (encoded.length)
+        assert.equal(encoded.at(-1)?.canvas.width, 0, 'canvas must be released before OCR starts');
       captures.push(file);
       root.render(null);
     },
@@ -173,7 +199,7 @@ async function mountCamera(
   };
 }
 
-test('camera waits for a decoded frame, bounds JPEG size, and releases resources before capture', async (t) => {
+test('without ImageCapture camera waits for a frame, bounds lossless PNG size, and releases resources', async (t) => {
   const camera = await mountCamera(t);
   assert.equal(camera.host.querySelector('dialog')?.open, true);
   assert.equal(camera.shutter().disabled, true);
@@ -192,15 +218,15 @@ test('camera waits for a decoded frame, bounds JPEG size, and releases resources
   assert.equal(camera.shutter().disabled, false);
   await camera.click('.button.primary');
   assert.equal(camera.captures.length, 1);
-  assert.equal(camera.captures[0].type, 'image/jpeg');
+  assert.equal(camera.captures[0].type, 'image/png');
   const { width, height, type, quality, canvas } = camera.encoded[0];
   assert.deepEqual(
     { width, height, type, quality },
     {
       width: 1600,
       height: 1200,
-      type: 'image/jpeg',
-      quality: 0.88,
+      type: 'image/png',
+      quality: undefined,
     },
   );
   assert.deepEqual([canvas.width, canvas.height], [0, 0]);
@@ -222,6 +248,16 @@ test('square camera frames also obey the pixel budget', async (t) => {
   assert.equal(width, height);
 });
 
+test('a tall video fallback keeps readable detail while remaining within the pixel budget', async (t) => {
+  const camera = await mountCamera(t);
+  await camera.ready(640, 2560);
+  await camera.click('.button.primary');
+  assert.deepEqual(
+    { width: camera.encoded[0].width, height: camera.encoded[0].height },
+    { width: 640, height: 2560 },
+  );
+});
+
 test('closing before camera permission resolves stops every late track', async (t) => {
   const opening = deferred<MediaStream>();
   const camera = await mountCamera(t, { getUserMedia: () => opening.promise });
@@ -231,7 +267,7 @@ test('closing before camera permission resolves stops every late track', async (
   assert.equal(camera.captures.length, 0);
 });
 
-test('closing while JPEG encoding is pending discards the photo and releases its canvas', async (t) => {
+test('closing while PNG encoding is pending discards the photo and releases its canvas', async (t) => {
   let finish!: BlobCallback;
   const camera = await mountCamera(t, {
     encode: (callback) => {
@@ -244,7 +280,7 @@ test('closing while JPEG encoding is pending discards the photo and releases its
   await camera.click('.button.primary');
   assert.equal(camera.encoded.length, 1, 'repeated clicks must not start another encoding');
   await camera.click('.camera-close');
-  await act(async () => finish(new Blob(['receipt'], { type: 'image/jpeg' })));
+  await act(async () => finish(new Blob(['receipt'], { type: 'image/png' })));
   assert.equal(camera.captures.length, 0);
   assert.deepEqual([camera.encoded[0].canvas.width, camera.encoded[0].canvas.height], [0, 0]);
   assert.deepEqual(camera.events, [
@@ -301,11 +337,11 @@ test('React StrictMode releases the discarded camera request without stopping th
   ]);
 });
 
-test('JPEG encoding failure keeps the camera available for another attempt', async (t) => {
+test('PNG encoding failure keeps the camera available for another attempt', async (t) => {
   let attempts = 0;
   const camera = await mountCamera(t, {
     encode(callback) {
-      callback(attempts++ ? new Blob(['receipt'], { type: 'image/jpeg' }) : null);
+      callback(attempts++ ? new Blob(['receipt'], { type: 'image/png' }) : null);
     },
   });
   await camera.ready();
@@ -313,6 +349,163 @@ test('JPEG encoding failure keeps the camera available for another attempt', asy
   assert.match(camera.host.querySelector('[role="alert"]')?.textContent ?? '', /もう一度/);
   assert.equal(camera.shutter().disabled, false);
   assert.equal(camera.captures.length, 0);
+  await camera.click('.button.primary');
+  assert.equal(camera.captures.length, 1);
+});
+
+test('still-photo capture uses native JPEG without decoding and stops tracks before handing off', async (t) => {
+  const events: string[] = [];
+  const requests: (PhotoSize | undefined)[] = [];
+  const camera = await mountCamera(t, {
+    events,
+    imageCapture: class {
+      async getPhotoCapabilities() {
+        return {
+          imageWidth: { min: 640, max: 4000, step: 1 },
+          imageHeight: { min: 480, max: 3000, step: 1 },
+        };
+      }
+      async takePhoto(settings?: PhotoSize) {
+        requests.push(settings);
+        events.push('still photo');
+        return stillPhoto();
+      }
+    },
+  });
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.deepEqual(requests, [{ imageWidth: 2000, imageHeight: 1500 }]);
+  assert.equal(camera.captures.length, 1);
+  assert.equal(camera.captures[0].type, 'image/jpeg');
+  assert.equal(camera.captures[0].name, 'receipt.jpg');
+  assert.deepEqual(await camera.captures[0].arrayBuffer(), await stillPhoto().arrayBuffer());
+  assert.equal(camera.encoded.length, 0, 'native JPEG must not pass through a canvas');
+  assert.deepEqual(events, [
+    'still photo',
+    'camera:video stopped',
+    'camera:second track stopped',
+    'capture',
+  ]);
+});
+
+test('unsupported photo capability inspection still allows native capture', async (t) => {
+  let received: PhotoSize | undefined;
+  const camera = await mountCamera(t, {
+    imageCapture: class {
+      async getPhotoCapabilities(): Promise<never> {
+        throw new Error('unavailable');
+      }
+      async takePhoto(settings?: PhotoSize) {
+        received = settings;
+        return stillPhoto();
+      }
+    },
+  });
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.equal(received, undefined);
+  assert.equal(camera.encoded.length, 0);
+  assert.equal(camera.captures.length, 1);
+});
+
+test('rejected still capture falls back to the bounded video frame', async (t) => {
+  const camera = await mountCamera(t, {
+    imageCapture: class {
+      async takePhoto(): Promise<Blob> {
+        throw new Error('driver does not support still photos');
+      }
+    },
+  });
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.equal(camera.encoded.length, 1);
+  assert.equal(camera.captures[0].type, 'image/png');
+});
+
+test('invalid native image metadata falls back instead of handing an unreadable photo to OCR', async (t) => {
+  const camera = await mountCamera(t, {
+    imageCapture: class {
+      async takePhoto() {
+        return new Blob(['truncated JPEG'], { type: 'image/jpeg' });
+      }
+    },
+  });
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.equal(camera.encoded.length, 1);
+  assert.equal(camera.captures[0].type, 'image/png');
+});
+
+test('closing while native capture is pending discards its late result without fallback', async (t) => {
+  const photo = deferred<Blob>();
+  let attempts = 0;
+  const camera = await mountCamera(t, {
+    imageCapture: class {
+      takePhoto() {
+        attempts++;
+        return photo.promise;
+      }
+    },
+  });
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.equal(camera.shutter().disabled, true);
+  await camera.click('.button.primary');
+  assert.equal(attempts, 1);
+  await camera.click('.camera-close');
+  await act(async () => photo.resolve(stillPhoto()));
+  assert.equal(camera.encoded.length, 0);
+  assert.equal(camera.captures.length, 0);
+  assert.deepEqual(camera.events, ['camera:video stopped', 'camera:second track stopped', 'close']);
+});
+
+test('supported continuous autofocus is enabled without changing video constraints', async (t) => {
+  const applied: MediaTrackConstraints[] = [];
+  const camera = await mountCamera(t, {
+    getUserMedia: async () =>
+      fakeStream([], 'camera', {
+        getCapabilities: () => ({ focusMode: ['manual', 'continuous'] }) as MediaTrackCapabilities,
+        applyConstraints: async (constraints = {}) => {
+          applied.push(constraints);
+        },
+      }),
+  });
+  assert.deepEqual(applied, [{ advanced: [{ focusMode: 'continuous' }] }]);
+  await camera.ready();
+  assert.equal(camera.shutter().disabled, false);
+});
+
+test('rejected autofocus does not prevent capturing', async (t) => {
+  let attempts = 0;
+  const camera = await mountCamera(t, {
+    getUserMedia: async () =>
+      fakeStream([], 'camera', {
+        getCapabilities: () => ({ focusMode: ['continuous'] }) as MediaTrackCapabilities,
+        applyConstraints: async () => {
+          attempts++;
+          throw new Error('unsupported driver setting');
+        },
+      }),
+  });
+  assert.equal(attempts, 1);
+  await camera.ready();
+  await camera.click('.button.primary');
+  assert.equal(camera.captures.length, 1);
+});
+
+test('camera does not request continuous focus when the device supports only manual focus', async (t) => {
+  let attempts = 0;
+  const camera = await mountCamera(t, {
+    getUserMedia: async () =>
+      fakeStream([], 'camera', {
+        getCapabilities: () => ({ focusMode: ['manual'] }) as MediaTrackCapabilities,
+        applyConstraints: async () => {
+          attempts++;
+        },
+      }),
+  });
+  assert.equal(attempts, 0);
+  await camera.ready();
   await camera.click('.button.primary');
   assert.equal(camera.captures.length, 1);
 });

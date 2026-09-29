@@ -84,8 +84,8 @@ export async function prepareReceiptImage(file: File, signal?: AbortSignal): Pro
           if (blob) resolve(blob);
           else reject(new Error('写真を準備できませんでした。もう一度お試しください。'));
         },
-        'image/jpeg',
-        0.88,
+        // Preserve fine Japanese strokes without another lossy JPEG encoding.
+        'image/png',
       );
     });
     signal?.throwIfAborted();

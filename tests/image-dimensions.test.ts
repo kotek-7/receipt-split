@@ -111,11 +111,13 @@ test('truncated and malformed metadata are rejected without out-of-bounds reads'
 test('bounds 12 MP, square, and tall receipt images without enlarging small ones', () => {
   assert.deepEqual(resizeDimensions(4032, 3024), { width: 1600, height: 1200 });
   assert.deepEqual(resizeDimensions(3024, 4032), { width: 1200, height: 1600 });
-  assert.deepEqual(resizeDimensions(800, 12000), { width: 106, height: 1600 });
+  assert.deepEqual(resizeDimensions(800, 12000), { width: 213, height: 3200 });
+  assert.deepEqual(resizeDimensions(640, 2560), { width: 640, height: 2560 });
+  assert.deepEqual(resizeDimensions(900, 2700), { width: 800, height: 2400 });
   assert.deepEqual(resizeDimensions(640, 480), { width: 640, height: 480 });
   const square = resizeDimensions(8000, 8000);
   assert.ok(square.width * square.height <= 1_920_000);
-  assert.ok(square.width <= 1600 && square.height <= 1600);
+  assert.ok(square.width <= 3200 && square.height <= 3200);
   for (const invalid of [0, -1, NaN, Infinity]) {
     assert.throws(() => resizeDimensions(invalid, 100));
   }
@@ -132,7 +134,7 @@ function replaceGlobal(t: TestContext, name: string, value: unknown) {
 
 test('preparation requests a resized oriented bitmap and releases it and the canvas', async (t) => {
   let closed = 0;
-  const result = new Blob(['small preview'], { type: 'image/jpeg' });
+  const result = new Blob(['small preview'], { type: 'image/png' });
   const bitmap = { close: () => closed++ };
   const canvas = {
     width: 0,
@@ -144,9 +146,8 @@ test('preparation requests a resized oriented bitmap and releases it and the can
         assert.deepEqual([x, y, width, height], [0, 0, 1200, 1600]);
       },
     }),
-    toBlob(callback: (blob: Blob) => void, type: string, quality: number) {
-      assert.equal(type, 'image/jpeg');
-      assert.equal(quality, 0.88);
+    toBlob(callback: (blob: Blob) => void, type: string) {
+      assert.equal(type, 'image/png');
       assert.equal(closed, 1);
       callback(result);
     },
