@@ -426,7 +426,7 @@ export default function App() {
             </li>
           </ol>
           <div className="info-box">
-            「個数分を払う」は自分の個数分を負担。「選んだ人で割る」は、その品目を選んだ人だけで均等に割り勘します。税・値引きなどの差額は金額に応じて按分します。
+            「各自のもの」は自分の個数分を負担。「シェアするもの」は、その品目を選んだ人だけで均等に割り勘します。税・値引きなどの差額は金額に応じて按分します。
           </div>
           <p className="muted small">
             共有リンクを知っている人は精算内容を閲覧できます。参加したブラウザをそのまま使ってください。
@@ -644,11 +644,11 @@ function Editor({
                     {[
                       {
                         mode: 'quantity' as const,
-                        label: '個数分を払う',
+                        label: '各自のもの',
                       },
                       {
                         mode: 'equal' as const,
-                        label: '選んだ人で割る',
+                        label: 'シェアするもの',
                       },
                     ].map(({ mode, label }) => (
                       <button
@@ -742,7 +742,7 @@ function Editor({
           <div className="info-box">
             <Sparkles size={17} />
             <p>
-              飲み物は「個数分を払う」、シェアする料理は「選んだ人で割る」。金額は購入数すべての合計です。
+              飲み物は「各自のもの」、ピザなどは「シェアするもの」。金額は購入数すべての合計です。
             </p>
           </div>
           {draft.rawText && (

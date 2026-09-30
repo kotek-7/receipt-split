@@ -34,8 +34,8 @@ export default function ItemSelection({
         <span className="selection-item-name">{item.name}</span>
         <span className="selection-item-mode">
           {byQuantity
-            ? `全${getItemQuantity(item)}個 · 個数分を払う`
-            : `${getItemQuantity(item) > 1 ? `全${getItemQuantity(item)}個 · ` : ''}選んだ人で割る`}
+            ? `全${getItemQuantity(item)}個 · 各自のもの`
+            : `${getItemQuantity(item) > 1 ? `全${getItemQuantity(item)}個 · ` : ''}シェアするもの`}
         </span>
         <span className="selection-item-members">
           {eaters.length

@@ -277,7 +277,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
               !room.items.some((item) => item.id === id && getItemSplitMode(item) === 'quantity'),
           )
         )
-          throw new ApiError(400, '個数は「個数で分ける」の選択した明細に入力してください。');
+          throw new ApiError(400, '個数は「各自のもの」で選んだ品目に入力してください。');
         const quantities = Object.fromEntries(
           room.items
             .filter(
