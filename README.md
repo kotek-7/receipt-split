@@ -137,7 +137,7 @@ CIにCloudflareの認証情報は不要です。
 
 自動デプロイの初回設定:
 
-1. [CloudflareのAPIトークン画面](https://dash.cloudflare.com/profile/api-tokens)で、`Edit Cloudflare Workers`テンプレートを使い、対象のアカウントと`kotek7.com`ゾーンに権限を限定したトークンを作成します。必要な権限は[Cloudflare公式のCI/CD手順](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)を参照してください。
+1. [CloudflareのAccount API tokens画面](https://dash.cloudflare.com/?to=/:account/api-tokens)で公開先アカウントのトークンを作成します。カスタム権限で、指定したWorker `reciwake`に`Individual Workers Editor`、指定したドメイン`kotek7.com`に`Zone Read`と`Workers Routes Edit`（確認画面では`Workers Routes Write`）を設定します。この設定で既存Workerの更新を確認しています。Workerや独自ドメインを新規作成・変更する場合の権限と制限は、[Cloudflare公式の権限説明](https://developers.cloudflare.com/workers/authorization/workers/)を参照してください。
 2. [リポジトリのActions Secrets](https://github.com/kotek-7/receipt-split/settings/secrets/actions)に`CLOUDFLARE_API_TOKEN`を登録します。トークンをコードやコミットに含めないでください。
 3. [Actions Variables](https://github.com/kotek-7/receipt-split/settings/variables/actions)に、公開先アカウントのIDを`CLOUDFLARE_ACCOUNT_ID`として登録します。
 4. Actionsの`CI / CD`から`Run workflow`で既定ブランチを実行します。
