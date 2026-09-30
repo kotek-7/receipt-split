@@ -700,6 +700,9 @@ function RoomPage({
   const [notice, setNotice] = useState('');
   const [removing, setRemoving] = useState<string | null>(null);
   const currentVersion = useRef(-1);
+  const initialTabSelected = useRef(false);
+  const contentHeading = useRef<HTMLHeadingElement>(null);
+  const errorPosition = useRef<HTMLDivElement>(null);
   const applyRoom = (next: Room) => {
     if (next.version >= currentVersion.current) {
       currentVersion.current = next.version;
@@ -737,6 +740,19 @@ function RoomPage({
     const timeout = setTimeout(() => setNotice(''), 3500);
     return () => clearTimeout(timeout);
   }, [notice]);
+  useEffect(() => {
+    if (!room || initialTabSelected.current) return;
+    const currentMember = room.members.find((m) => m.id === identity?.memberId);
+    if (!currentMember && !room.closed) return;
+    initialTabSelected.current = true;
+    if (currentMember?.done || room.closed) setTab('summary');
+  }, [room, identity]);
+  useEffect(() => {
+    contentHeading.current?.focus();
+  }, [tab]);
+  useEffect(() => {
+    if (error) errorPosition.current?.focus();
+  }, [error]);
   const mutate = async (path: string, data: unknown, method: string, success?: () => void) => {
     setBusy(true);
     setError('');
@@ -827,6 +843,21 @@ function RoomPage({
     if (quantity > 0 && getItemSplitMode(item) === 'quantity') data.quantities[item.id] = quantity;
     void mutate('/selection', data, 'PUT');
   };
+  const finishSelection = () =>
+    void mutate('/selection', selectionData(selected, true), 'PUT', () => setTab('summary'));
+  const finishLabel = selected.length ? '選択を終える' : '自分の分なしで完了';
+  const selectionGroups = [
+    {
+      mode: 'quantity' as const,
+      title: '飲んだ・食べた数',
+      hint: '＋で自分の数を選んでください。',
+    },
+    {
+      mode: 'equal' as const,
+      title: 'シェアしたものを選ぶ',
+      hint: '飲んだ・食べた人だけで、均等に割ります。',
+    },
+  ];
   const transferText = [
     `${room.title} の割り勘`,
     ...room.members
@@ -864,7 +895,9 @@ function RoomPage({
         </button>
       </div>
       <ErrorMessage>{connectionError}</ErrorMessage>
-      <ErrorMessage>{error}</ErrorMessage>
+      <div ref={errorPosition} tabIndex={-1} className="room-error">
+        <ErrorMessage>{error}</ErrorMessage>
+      </div>
       {!member ? (
         <section className="join-panel panel">
           <span className="join-icon">
@@ -941,39 +974,48 @@ function RoomPage({
           <section className="item-selection">
             <div className="selection-heading">
               <div>
-                <h2>{room.closed ? 'あなたが選んだもの' : '飲んだ・食べたものを選ぶ'}</h2>
+                <h2 ref={contentHeading} tabIndex={-1} className="room-content-heading">
+                  {room.closed ? 'あなたが選んだもの' : '自分の分を選んでください'}
+                </h2>
                 <p>
                   {room.closed
                     ? '選び直す場合は、立て替えた人が「みんなの金額」から選択を再開します。'
-                    : '「各自」は飲んだ・食べた数を入力。「シェア」は一緒に飲食した人が選びます。'}
+                    : '飲んでいない・食べていないものは、そのままでOKです。'}
                 </p>
               </div>
-              <span>
-                {selected.length} / {room.items.length}
-              </span>
             </div>
-            <div className="selectable-items">
-              {room.items.map((item, index) => (
-                <ItemSelection
-                  key={item.id}
-                  item={item}
-                  room={room}
-                  memberId={member.id}
-                  allocation={settlement.itemAllocations[index]}
-                  busy={busy}
-                  onChange={(quantity) => changeQuantity(item, quantity)}
-                />
-              ))}
-            </div>
+            {selectionGroups.map((group) => {
+              const groupItems = room.items.filter((item) => getItemSplitMode(item) === group.mode);
+              if (!groupItems.length) return null;
+              return (
+                <section
+                  className="selection-group"
+                  key={group.mode}
+                  aria-labelledby={`group-${group.mode}`}
+                >
+                  <div className="selection-group-heading">
+                    <h3 id={`group-${group.mode}`}>{group.title}</h3>
+                    {!room.closed && <p>{group.hint}</p>}
+                  </div>
+                  {groupItems.map((item) => (
+                    <ItemSelection
+                      key={item.id}
+                      item={item}
+                      room={room}
+                      memberId={member.id}
+                      allocation={settlement.itemAllocations.find((a) => a.itemId === item.id)!}
+                      busy={busy}
+                      onChange={(quantity) => changeQuantity(item, quantity)}
+                    />
+                  ))}
+                </section>
+              );
+            })}
             {room.total !== room.items.reduce((s, i) => s + i.amount, 0) && (
               <p className="selection-footnote">
                 表示金額には、税・値引きなどの差額も含まれています。
               </p>
             )}
-            <div className="selection-tip">
-              <Users size={16} />
-              <p>立て替えた人も、飲んだもの・食べたものを選びます。</p>
-            </div>
           </section>
           <aside className="amount-card">
             <h2>{isOwner ? 'あなたの分' : `${payer.name}さんに返す金額`}</h2>
@@ -997,28 +1039,14 @@ function RoomPage({
             ) : (
               <>
                 <button
-                  className={`button full ${member.done ? 'secondary' : 'primary'}`}
+                  className="button primary full selection-finish"
                   disabled={busy}
-                  onClick={() =>
-                    void mutate('/selection', selectionData(selected, !member.done), 'PUT', () =>
-                      setNotice(member.done ? '選択を再開しました' : '入力完了にしました'),
-                    )
-                  }
+                  onClick={finishSelection}
                 >
-                  {busy ? (
-                    <Spinner />
-                  ) : member.done ? (
-                    <CheckCheck size={18} />
-                  ) : (
-                    <Check size={18} />
-                  )}
-                  {member.done
-                    ? '入力完了済み · 選び直す'
-                    : selected.length
-                      ? 'これで入力完了'
-                      : '自分の分なしで完了'}
+                  {busy ? <Spinner /> : <Check size={18} />}
+                  {finishLabel}
                 </button>
-                <p className="under-button">確定前なら、入力完了後も選び直せます。</p>
+                <p className="under-button">確定前なら、あとから選び直せます。</p>
               </>
             )}
             <button className="text-button summary-link" onClick={() => setTab('summary')}>
@@ -1029,9 +1057,43 @@ function RoomPage({
         </div>
       ) : (
         <section className="panel settlement-panel">
+          {member && !room.closed && (
+            <div className={`selection-result ${member.done ? 'is-done' : ''}`}>
+              <div>
+                {member.done && <CheckCheck size={22} aria-hidden="true" />}
+                <h2 ref={contentHeading} tabIndex={-1} className="room-content-heading">
+                  {member.done ? 'あなたの入力は完了です' : '自分の分を選んでください'}
+                </h2>
+              </div>
+              <p>
+                {!member.done
+                  ? '飲んだもの・食べたものを選び、選択を終えてください。'
+                  : participantCount > doneCount
+                    ? `あと${participantCount - doneCount}人の入力を待っています。`
+                    : settlement.unassignedCount > 0
+                      ? 'まだ選ばれていないものがあります。みんなで確認してください。'
+                      : isOwner
+                        ? '全員の入力が揃いました。金額を確認して、下のボタンで確定してください。'
+                        : `${payer.name}さんが金額を確定するのを待っています。`}
+              </p>
+              <button
+                className={member.done ? 'text-button' : 'button primary'}
+                onClick={() => setTab('items')}
+              >
+                {member.done ? <ArrowLeft size={15} /> : null}
+                {member.done ? '自分の分を選び直す' : '自分の分を選ぶ'}
+              </button>
+            </div>
+          )}
           <div className="selection-heading">
             <div>
-              <h2>{room.closed ? '返す相手と金額' : 'みんなの金額（仮）'}</h2>
+              <h2
+                ref={room.closed || !member ? contentHeading : undefined}
+                tabIndex={-1}
+                className="room-content-heading"
+              >
+                {room.closed ? '返す相手と金額' : 'みんなの金額（仮）'}
+              </h2>
               <p>
                 {room.closed
                   ? 'お金を受け取ったら、立て替えた人が「受け取った」を押します。'
@@ -1168,17 +1230,26 @@ function RoomPage({
             <span>{isOwner ? 'あなたの分（仮）' : `${payer.name}さんに返す（仮）`}</span>
             <strong>{yen(myAmount)}</strong>
           </div>
-          <button
-            className={`button ${member.done ? 'secondary' : 'primary'}`}
-            disabled={busy}
-            onClick={() => void mutate('/selection', selectionData(selected, !member.done), 'PUT')}
-          >
+          <button className="button primary" disabled={busy} onClick={finishSelection}>
             {busy ? <Spinner /> : <Check size={17} />}
-            {member.done ? '選び直す' : '入力完了'}
+            {finishLabel}
           </button>
         </div>
       )}
-      {sharing && <ShareModal room={room} onClose={() => setSharing(false)} />}
+      {sharing && (
+        <ShareModal
+          room={room}
+          onClose={() => setSharing(false)}
+          onSelect={
+            member && !room.closed
+              ? () => {
+                  setSharing(false);
+                  setTab('items');
+                }
+              : undefined
+          }
+        />
+      )}
       {confirming && (
         <Modal
           title={
@@ -1331,7 +1402,15 @@ function CopyButton({
     </>
   );
 }
-function ShareModal({ room, onClose }: { room: Room; onClose: () => void }) {
+function ShareModal({
+  room,
+  onClose,
+  onSelect,
+}: {
+  room: Room;
+  onClose: () => void;
+  onSelect?: () => void;
+}) {
   const url = `${location.origin}/r/${room.id}`;
   const [error, setError] = useState('');
   return (
@@ -1391,6 +1470,12 @@ function ShareModal({ room, onClose }: { room: Room; onClose: () => void }) {
       </div>
       <ErrorMessage>{error}</ErrorMessage>
       <p className="muted small share-note">リンクを知っている人が参加・閲覧できます。</p>
+      {onSelect && (
+        <button className="button primary full" onClick={onSelect}>
+          自分の分を選ぶ
+          <ArrowRight size={17} />
+        </button>
+      )}
     </Modal>
   );
 }

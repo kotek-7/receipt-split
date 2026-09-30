@@ -910,18 +910,26 @@ label > input {
 }
 .room-heading {
   margin: var(--space-7) 0 var(--space-7);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
+  gap: var(--space-2) var(--space-5);
+}
+.room-heading > div {
+  display: contents;
+}
+.room-heading > .share-button {
+  grid-column: 2;
+  grid-row: 1;
 }
 .room-heading h1 {
   font-size: var(--font-page-title);
   letter-spacing: -0.8px;
-  margin: var(--space-2) 0 var(--space-3);
+  margin: 0;
   overflow-wrap: anywhere;
 }
 .room-heading p {
+  grid-column: 1 / -1;
   font-size: var(--font-small);
   line-height: 1.8;
   color: var(--color-text-muted);
@@ -938,10 +946,7 @@ label > input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--color-soft);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-2) 0;
   gap: var(--space-4);
 }
 .member-strip > div {
@@ -1067,137 +1072,58 @@ label > input {
   color: var(--color-text-muted);
   white-space: nowrap;
 }
-.selectable-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  text-align: left;
-  gap: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
-  padding: var(--space-5) var(--space-6);
-  min-height: 89px;
-  transition: background 0.2s;
+/* Selection rows are styled in selection.css. */
+.room-content-heading:focus,
+.room-error:focus {
+  outline: none;
 }
-.selectable-item.selected {
-  background: var(--color-selected);
+.item-selection > .selection-heading {
+  padding: 0 0 var(--space-6);
 }
-.selectable-item:disabled {
-  opacity: 1;
+.item-selection > .selection-heading h2 {
+  font-size: var(--font-card-title);
 }
-button.selectable-item:not(:disabled):hover {
+.item-selection > .selection-heading p {
+  font-size: var(--font-small);
+}
+.selection-group + .selection-group {
+  margin-top: var(--space-9);
+}
+.selection-group-heading {
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--color-text);
+}
+.selection-group-heading h3 {
+  font-size: var(--font-subheading);
+}
+.selection-group-heading p {
+  font-size: var(--font-small);
+  color: var(--color-text-muted);
+  line-height: 1.8;
+  margin-top: var(--space-2);
+}
+.selection-result {
+  padding: var(--space-7) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-subtle);
 }
-.item-checkbox {
+.selection-result > div {
   display: flex;
+  gap: var(--space-3);
   align-items: center;
-  justify-content: center;
-  width: 23px;
-  height: 23px;
-  min-width: 23px;
-  border: 1.5px solid var(--color-control-border);
-  border-radius: var(--radius-small);
-  color: var(--color-surface);
-  background: var(--color-surface);
 }
-.selected .item-checkbox {
-  background: var(--color-action);
-  border-color: var(--color-action);
+.selection-result h2 {
+  font-size: var(--font-section);
 }
-.selection-item-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
+.selection-result.is-done > div > svg {
+  color: var(--color-action);
+  flex-shrink: 0;
 }
-.selection-item-name {
+.selection-result p {
+  margin: var(--space-3) 0;
   font-size: var(--font-body);
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-.selection-item-mode {
-  color: var(--color-action);
-  font-size: var(--font-caption);
-}
-.quantity-item.selected {
-  background: var(--color-selected);
-}
-.quantity-item .selectable-item {
-  background: transparent;
-  padding-bottom: var(--space-3);
-}
-.quantity-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: 0 var(--space-6) var(--space-5);
-}
-.quantity-remaining {
-  font-size: var(--font-small);
-  color: var(--color-action);
-}
-.quantity-remaining.pending {
-  color: var(--color-warning);
-}
-.quantity-stepper {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
-  font-size: var(--font-small);
-}
-.quantity-stepper strong {
-  font-size: var(--font-input);
-  font-variant-numeric: tabular-nums;
-}
-.quantity-stepper button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--color-control-border);
-  border-radius: var(--radius-control);
-  color: var(--color-action);
-  background: var(--color-surface);
-}
-.selection-item-members {
-  font-size: var(--font-caption);
-  color: var(--color-text-muted);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-.selected .selection-item-members {
-  color: var(--color-text-muted);
-}
-.selection-item-price {
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-.selection-item-price strong {
-  font-size: var(--font-input);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.selection-item-price small {
-  font-size: var(--font-caption);
-  color: var(--color-action);
-}
-.selection-tip {
-  padding: var(--space-4) var(--space-6);
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  background: var(--color-page);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: var(--font-caption);
+  line-height: 1.8;
+  color: var(--color-text-secondary);
 }
 .selection-footnote {
   padding: var(--space-3) var(--space-6);
@@ -1207,10 +1133,10 @@ button.selectable-item:not(:disabled):hover {
   background: var(--color-page);
 }
 .amount-card {
-  --receipt-paper: var(--color-soft);
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--color-border);
-  background: var(--color-soft);
+  border-radius: 0;
+  border: 0;
+  border-top: 3px solid var(--color-action);
+  background: var(--color-surface-subtle);
   padding: var(--space-7) var(--space-6);
   text-align: center;
   position: sticky;
@@ -1219,7 +1145,7 @@ button.selectable-item:not(:disabled):hover {
 .amount-card h2 {
   font-size: var(--font-small);
   font-weight: 500;
-  margin-top: var(--space-4);
+  margin-top: 0;
   line-height: 1.9;
   overflow-wrap: anywhere;
 }
@@ -1866,7 +1792,7 @@ button.selectable-item:not(:disabled):hover {
     min-height: var(--control-height);
     font-size: var(--font-caption);
     gap: var(--space-1);
-    margin-top: var(--space-6);
+    margin-top: 0;
   }
   .room-heading .share-button > svg {
     width: 14px;
@@ -1899,7 +1825,7 @@ button.selectable-item:not(:disabled):hover {
     font-size: var(--font-small);
   }
   .member-strip {
-    padding: var(--space-3);
+    padding: var(--space-2) 0;
     gap: var(--space-3);
   }
   .member-strip > div {
@@ -1976,29 +1902,11 @@ button.selectable-item:not(:disabled):hover {
   .selection-heading p {
     font-size: var(--font-caption);
   }
-  .selectable-item {
-    padding: var(--space-5) var(--space-5);
-    gap: var(--space-3);
+  .amount-card:has(.selection-finish) {
+    display: none;
   }
-  .quantity-controls {
-    padding-right: var(--space-5);
-    padding-left: var(--space-5);
-  }
-  .selection-item-name {
-    font-size: var(--font-body);
-  }
-  .selection-item-price strong {
-    font-size: var(--font-input);
-  }
-  .selection-item-price small {
-    font-size: var(--font-caption);
-  }
-  .selection-item-members {
-    font-size: var(--font-caption);
-  }
-  .selection-tip {
-    font-size: var(--font-caption);
-    padding: var(--space-4) var(--space-5);
+  .selection-result {
+    padding: var(--space-5);
   }
   .settlement-person {
     padding: var(--space-5) var(--space-5);

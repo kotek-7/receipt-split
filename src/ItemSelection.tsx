@@ -1,6 +1,7 @@
 import { Check, Minus, Plus } from 'lucide-react';
 import type { ItemAllocation, ReceiptItem, Room } from '../shared/types';
 import { getItemQuantity, getItemSplitMode, getSelectionQuantity } from '../shared/settlement';
+import './selection.css';
 
 const yen = (amount: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount);
@@ -23,21 +24,62 @@ export default function ItemSelection({
   const quantity = getSelectionQuantity(room, memberId, item);
   const byQuantity = getItemSplitMode(item) === 'quantity';
   const eaters = room.members.filter((member) => getSelectionQuantity(room, member.id, item) > 0);
-  const content = (
-    <>
-      {!byQuantity && (
-        <span className="item-checkbox">
-          {quantity > 0 && <Check size={17} strokeWidth={2.5} />}
-        </span>
-      )}
-      <span className="selection-item-content">
-        <span className="selection-item-name">{item.name}</span>
-        <span className="selection-item-mode">
-          {byQuantity
-            ? `各自 · 数量 ${getItemQuantity(item)}`
-            : `シェア · 数量 ${getItemQuantity(item)}`}
-        </span>
-        <span className="selection-item-members">
+  return (
+    <div
+      className={`meal-choice ${quantity > 0 ? 'meal-choice-selected' : ''}`}
+      role="group"
+      aria-label={item.name}
+    >
+      <div className="meal-choice-heading">
+        <h4>{item.name}</h4>
+        <p className="meal-choice-total">
+          全体 {yen(allocation.amount)} <span>· 数量 {getItemQuantity(item)}</span>
+        </p>
+      </div>
+      <div className="meal-choice-actions">
+        <div className="meal-choice-share">
+          <span>あなたの分</span>
+          <strong>{yen(allocation.memberAmounts[memberId] || 0)}</strong>
+        </div>
+        {byQuantity ? (
+          <div className="meal-choice-stepper">
+            <button
+              type="button"
+              aria-label={`${item.name}の数を減らす`}
+              disabled={busy || room.closed || quantity === 0}
+              onClick={() => onChange(quantity - 1)}
+            >
+              <Minus size={18} />
+            </button>
+            <span className="meal-choice-count" aria-live="polite" aria-atomic="true">
+              <span>自分の数</span>
+              <strong>{quantity}</strong>
+            </span>
+            <button
+              type="button"
+              aria-label={`${item.name}の数を増やす`}
+              disabled={busy || room.closed || allocation.unassignedQuantity === 0}
+              onClick={() => onChange(quantity + 1)}
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="meal-choice-toggle"
+            aria-label={`${item.name}：${quantity > 0 ? '選択済み' : '選ぶ'}`}
+            aria-pressed={quantity > 0}
+            disabled={busy || room.closed}
+            onClick={() => onChange(quantity > 0 ? 0 : 1)}
+          >
+            {quantity > 0 ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} />}
+            {quantity > 0 ? '選択済み' : '選ぶ'}
+          </button>
+        )}
+      </div>
+      <div className="meal-choice-status">
+        <p>
           {eaters.length
             ? byQuantity
               ? eaters
@@ -47,60 +89,14 @@ export default function ItemSelection({
                   .join('・')
               : `${eaters.map((member) => member.name).join('・')}（${eaters.length}人で割り勘）`
             : 'まだ選ばれていません'}
-        </span>
-      </span>
-      <span className="selection-item-price">
-        <strong>{yen(allocation.amount)}</strong>
-        {quantity > 0 && <small>あなた {yen(allocation.memberAmounts[memberId] || 0)}</small>}
-      </span>
-    </>
-  );
-  if (!byQuantity) {
-    return (
-      <button
-        className={`selectable-item ${quantity > 0 ? 'selected' : ''}`}
-        aria-pressed={quantity > 0}
-        disabled={busy || room.closed}
-        onClick={() => onChange(quantity > 0 ? 0 : 1)}
-      >
-        {content}
-      </button>
-    );
-  }
-  return (
-    <div
-      className={`quantity-item ${quantity > 0 ? 'selected' : ''}`}
-      role="group"
-      aria-label={item.name}
-    >
-      <div className="selectable-item">{content}</div>
-      <div className="quantity-controls">
-        <span
-          className={`quantity-remaining ${allocation.unassignedQuantity > 0 ? 'pending' : ''}`}
-        >
-          {allocation.unassignedQuantity > 0
-            ? `残り ${allocation.unassignedQuantity}`
-            : 'すべて選択済み'}
-        </span>
-        <div className="quantity-stepper">
-          <button
-            aria-label={`${item.name}の数を減らす`}
-            disabled={busy || room.closed || quantity === 0}
-            onClick={() => onChange(quantity - 1)}
-          >
-            <Minus size={16} />
-          </button>
-          <span aria-live="polite" aria-atomic="true">
-            あなた <strong>{quantity}</strong>
+        </p>
+        {byQuantity && (
+          <span>
+            {allocation.unassignedQuantity > 0
+              ? `残り ${allocation.unassignedQuantity}`
+              : 'すべて選択済み'}
           </span>
-          <button
-            aria-label={`${item.name}の数を増やす`}
-            disabled={busy || room.closed || allocation.unassignedQuantity === 0}
-            onClick={() => onChange(quantity + 1)}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
