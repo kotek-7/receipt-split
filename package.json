@@ -16,6 +16,7 @@
     "check:worker": "tsc -p tsconfig.worker.json --noEmit",
     "deploy": "wrangler deploy",
     "test:cloud": "tsx tests/cloudflare.smoke.mjs",
+    "test:cloud:local": "node scripts/test-cloud-local.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

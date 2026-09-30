@@ -110,6 +110,29 @@ npm run test:cloud
 
 このテストは動作確認用の会計を作成します。接続先は既定で`http://127.0.0.1:8787`です。
 
+ローカル環境の起動からAPIの検証、終了までまとめて実行する場合:
+
+```sh
+npm run build
+npm run test:cloud:local
+```
+
+一時的な保存先でWranglerを起動し、既存のローカルデータや公開環境に会計を作らずに検証します。
+
+## CI
+
+[GitHub Actions](https://github.com/kotek-7/receipt-split/actions/workflows/ci.yml)で、push・Pull Request・手動実行時にNode.js 24で以下を確認します。
+
+- `npm ci`によるロックファイルからの依存インストール
+- フォーマットとWorkerの型チェック
+- 単体・API・画面テスト
+- アプリの型チェックとフロントエンドのビルド
+- 一時的なCloudflareローカル環境でのAPI操作テスト
+
+CIにCloudflareの認証情報は不要です。
+
+## 手動デプロイ
+
 公開するには、`kotek7.com`を管理するCloudflareアカウントでWranglerにログインしてからデプロイします。
 
 ```sh
