@@ -5,6 +5,7 @@ import {
   Window,
   type HTMLButtonElement as HappyButton,
   type HTMLInputElement as HappyInput,
+  type HTMLElement as HappyElement,
 } from 'happy-dom';
 import { act, createElement } from 'react';
 import type { ReceiptItem, Room } from '../shared/types';
@@ -93,7 +94,8 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
   const identity = { memberId: 'a', token: 'test-session-token' };
   const selections: SelectionBody[] = [];
   const creations: CreationBody[] = [];
-  let selectionFailure: string | undefined;
+  const selectionFailures = new Map<number, string>();
+  let selectionWait: Promise<void> | undefined;
   if (initialRoom && signedIn)
     window.localStorage.setItem('receipt-split:session:test-room', JSON.stringify(identity));
   const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
@@ -118,9 +120,16 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
       assert.equal(new Headers(init.headers).get('Authorization'), `Bearer ${identity.token}`);
       const body = JSON.parse(String(init.body)) as SelectionBody;
       selections.push(body);
+      const requestNumber = selections.length;
+      if (selectionWait) {
+        const waiting = selectionWait;
+        selectionWait = undefined;
+        await waiting;
+      }
+      const selectionFailure = selectionFailures.get(requestNumber);
       if (selectionFailure) {
         const error = selectionFailure;
-        selectionFailure = undefined;
+        selectionFailures.delete(requestNumber);
         return Response.json({ error }, { status: 409 });
       }
       room = {
@@ -175,6 +184,13 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
     assert.ok(button, `missing button ${text}`);
     return button;
   };
+  const tile = (itemName: string, number: number) => {
+    const element = host.querySelector<HappyButton>(
+      `.meal-choice[aria-label="${itemName}"] .meal-unit[data-slot="${number - 1}"]`,
+    );
+    assert.ok(element, `missing ${itemName} tile ${number}`);
+    return element;
+  };
   const radio = (text: string) => {
     const radio = Array.from(host.querySelectorAll<HappyInput>('input[type="radio"]')).find(
       (element) => element.getAttribute('aria-label') === text,
@@ -187,9 +203,29 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
     selections,
     creations,
     button,
+    tile,
     radio,
+    updateRoom(update: (room: Room) => void) {
+      update(room);
+      room = { ...room, version: room.version + 1 };
+    },
+    async refresh() {
+      await act(async () => window.dispatchEvent(new window.Event('focus')));
+    },
+    holdNextSelection() {
+      let release!: () => void;
+      selectionWait = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return async () => {
+        await act(async () => release());
+      };
+    },
+    async clickTile(itemName: string, number: number) {
+      await act(async () => tile(itemName, number).click());
+    },
     failNextSelection(message: string) {
-      selectionFailure = message;
+      selectionFailures.set(selections.length + 1, message);
     },
     async click(text: string) {
       await act(async () => button(text).click());
@@ -278,7 +314,7 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.equal(app.creations[0].calculationMode, 'fixed-participants');
   assert.match(app.host.textContent, /1 \/ 3人が参加/);
   assert.match(app.host.textContent, /0 \/ 3人が入力完了/);
-  assert.equal(app.button('ドリンクの数を増やす').disabled, false);
+  assert.equal(app.tile('ドリンク', 1).disabled, false);
   assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
   assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /ピザ/);
   assert.equal(app.host.querySelector('.included-items .amount-ratio strong')?.textContent, '300');
@@ -299,7 +335,7 @@ test('fixed participant selects one beer and finishes at 900 yen without choosin
     app.host.querySelector('.included-items .amount-ratio .ratio-total')?.textContent.trim(),
     '/ 1,200',
   );
-  await app.click('ビールの数を増やす');
+  await app.clickTile('ビール', 1);
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['beer'],
     quantities: { beer: 1 },
@@ -329,7 +365,7 @@ test('fixed participant selects one beer and finishes at 900 yen without choosin
   assert.equal(app.host.querySelector('.selection-result h2')?.textContent, 'はるさんに返す金額');
   assert.doesNotMatch(app.host.textContent, /入力を待っています|確定するのを待っています/);
   assert.match(app.host.textContent, /1 \/ 4人が入力完了/);
-  await app.click('数を直す');
+  await app.click('選び直す');
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
   assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
 });
@@ -351,25 +387,26 @@ test('fixed shared-only receipt completes by confirming the amount without enter
   assert.doesNotMatch(app.host.textContent, /入力を待っています|確定するのを待っています/);
 });
 
-test('quantity controls and shared-item toggles preserve each other and stop at the purchased count', async (t) => {
+test('unit tiles and shared-item toggles preserve each other and stop at the purchased count', async (t) => {
   const app = await mountApp(t, mixedRoom());
   assert.equal(app.button('ピザ：選択済み').getAttribute('aria-pressed'), 'true');
-  assert.equal(app.button('ドリンクの数を減らす').disabled, true);
-  await app.click('ドリンクの数を増やす');
+  assert.equal(app.tile('ドリンク', 1).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.tile('ドリンク', 3).disabled, true);
+  await app.clickTile('ドリンク', 1);
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['pizza', 'drink'],
     quantities: { drink: 1 },
     done: false,
   });
-  await app.click('ドリンクの数を増やす');
+  await app.clickTile('ドリンク', 2);
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['pizza', 'drink'],
     quantities: { drink: 2 },
     done: false,
   });
-  assert.equal(app.button('ドリンクの数を増やす').disabled, true);
+  assert.equal(app.tile('ドリンク', 3).disabled, true);
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
-  await app.click('ドリンクの数を減らす');
+  await app.clickTile('ドリンク', 2);
   await app.toggleSharedItem();
   assert.equal(app.button('ピザ：選ぶ').getAttribute('aria-pressed'), 'false');
   assert.deepEqual(app.selections.at(-1), {
@@ -383,10 +420,236 @@ test('quantity controls and shared-item toggles preserve each other and stop at 
     quantities: { drink: 1 },
     done: false,
   });
-  await app.click('ドリンクの数を減らす');
+  await app.clickTile('ドリンク', 1);
   assert.deepEqual(app.selections.at(-1), { itemIds: ['pizza'], quantities: {}, done: false });
-  assert.equal(app.button('ドリンクの数を減らす').disabled, true);
+  assert.equal(app.tile('ドリンク', 1).getAttribute('aria-pressed'), 'false');
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
+});
+
+test('individual tiles retain the tapped positions when selecting and removing a middle drink', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  await app.clickTile('ビール', 3);
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-label'), 'ビール 3/3');
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'false');
+  await app.clickTile('ビール', 1);
+  await app.clickTile('ビール', 2);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 3 });
+  await app.clickTile('ビール', 2);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 2 });
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥1,500');
+});
+
+test('another participant claiming a drink keeps the local tile positions and amount stable', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  await app.clickTile('ビール', 3);
+  await app.clickTile('ビール', 1);
+  app.updateRoom((room) => {
+    room.selections.b = ['beer'];
+    room.selectionQuantities!.b = { beer: 1 };
+  });
+  await app.refresh();
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 2).disabled, true);
+  assert.match(app.tile('ビール', 2).getAttribute('aria-label') ?? '', /ほかの人の分/);
+  assert.equal(app.tile('ビール', 1).disabled, false, 'a selected tile must remain removable');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥1,500');
+  await app.clickTile('ビール', 3);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 1 });
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.tile('ビール', 3).disabled, false, 'the released tile stays available');
+  assert.equal(app.tile('ビール', 2).disabled, true, 'the other participant marker stays put');
+});
+
+test('a last-drink conflict restores the previous selected tile and refreshes occupied tiles', async (t) => {
+  const room = fixedRoom();
+  room.selections.b = ['beer'];
+  room.selectionQuantities!.b = { beer: 1 };
+  const app = await mountApp(t, room);
+  await app.clickTile('ビール', 2);
+  app.updateRoom((latest) => {
+    latest.selectionQuantities!.b = { beer: 2 };
+  });
+  app.failNextSelection('ほかの人が先に選びました。');
+  await app.clickTile('ビール', 1);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 2 }, 'the attempted count is sent');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 2).disabled, false);
+  for (const number of [1, 3]) {
+    assert.equal(app.tile('ビール', number).getAttribute('aria-pressed'), 'false');
+    assert.equal(app.tile('ビール', number).disabled, true);
+    assert.match(app.tile('ビール', number).getAttribute('aria-label') ?? '', /ほかの人の分/);
+  }
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '1');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  assert.match(app.host.textContent, /ほかの人が先に選びました/);
+  await app.clickTile('ビール', 2);
+  assert.deepEqual(app.selections.at(-1), { itemIds: [], quantities: {}, done: false });
+});
+
+test('rapid taps queue the latest drink count while other rows and completion wait for saving', async (t) => {
+  const room = fixedRoom();
+  room.items.push({ id: 'wine', name: 'ワイン', amount: 1000, quantity: 2, splitMode: 'quantity' });
+  room.total = 4000;
+  const app = await mountApp(t, room);
+  const release = app.holdNextSelection();
+  await app.clickTile('ビール', 1);
+  for (const number of [1, 2, 3]) assert.equal(app.tile('ビール', number).disabled, false);
+  assert.equal(app.tile('ワイン', 1).disabled, true);
+  assert.equal(app.button('この金額で完了').disabled, true);
+  await app.clickTile('ビール', 2);
+  assert.equal(app.selections.length, 1, 'the next request must wait for the pending request');
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '2');
+  await release();
+  assert.deepEqual(
+    app.selections.map(({ quantities }) => quantities),
+    [{ beer: 1 }, { beer: 2 }],
+  );
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ワイン', 1).disabled, false);
+  assert.equal(app.button('この金額で完了').disabled, false);
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥1,500');
+});
+
+test('tapping a drink again before its save finishes queues an undo and returns to zero', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  const release = app.holdNextSelection();
+  await app.clickTile('ビール', 3);
+  await app.clickTile('ビール', 3);
+  assert.equal(app.selections.length, 1);
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '0');
+  assert.equal(app.button('この金額で完了').disabled, true);
+  await release();
+  assert.deepEqual(app.selections, [
+    { itemIds: ['beer'], quantities: { beer: 1 }, done: false },
+    { itemIds: [], quantities: {}, done: false },
+  ]);
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
+  assert.equal(app.button('この金額で完了').disabled, false);
+});
+
+test('swapping the selected drink while a save is pending preserves the last tapped tile', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  const release = app.holdNextSelection();
+  await app.clickTile('ビール', 1);
+  await app.clickTile('ビール', 2);
+  await app.clickTile('ビール', 1);
+  await release();
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '1');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  await app.clickTile('ビール', 2);
+  assert.deepEqual(app.selections.at(-1), { itemIds: [], quantities: {}, done: false });
+});
+
+test('a queued save failure keeps the last acknowledged tile and discards later unsaved taps', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  const releaseFirst = app.holdNextSelection();
+  await app.clickTile('ビール', 3);
+  await app.clickTile('ビール', 1);
+  const releaseSecond = app.holdNextSelection();
+  app.failNextSelection('保存できませんでした。もう一度お試しください。');
+  await releaseFirst();
+  assert.equal(app.selections.length, 2);
+  await app.clickTile('ビール', 2);
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '3');
+  await releaseSecond();
+  assert.equal(app.selections.length, 2, 'a failed save must discard the queued third request');
+  assert.equal(app.tile('ビール', 3).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.tile('ビール', 1).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.tile('ビール', 2).getAttribute('aria-pressed'), 'false');
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '1');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  assert.match(app.host.textContent, /保存できませんでした/);
+  await app.clickTile('ビール', 1);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 2 });
+});
+
+test('removing the last tile of one drink preserves the count of another drink', async (t) => {
+  const room = fixedRoom();
+  room.items.push({ id: 'wine', name: 'ワイン', amount: 1000, quantity: 2, splitMode: 'quantity' });
+  room.total = 4000;
+  const app = await mountApp(t, room);
+  await app.clickTile('ワイン', 2);
+  await app.clickTile('ビール', 2);
+  await app.clickTile('ビール', 2);
+  assert.deepEqual(app.selections.at(-1), {
+    itemIds: ['wine'],
+    quantities: { wine: 1 },
+    done: false,
+  });
+  assert.equal(app.tile('ワイン', 2).getAttribute('aria-pressed'), 'true');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥800');
+});
+
+test('large orders reveal tiles in batches and allow a bounded direct count without rendering every unit', async (t) => {
+  const room = fixedRoom();
+  room.items[0].quantity = 999;
+  room.items[0].amount = 99900;
+  room.total = 101100;
+  room.selections.b = ['beer'];
+  room.selectionQuantities!.b = { beer: 2 };
+  const app = await mountApp(t, room);
+  assert.equal(app.host.querySelectorAll('.meal-unit').length, 12);
+  await app.click('ビールをさらに表示');
+  assert.equal(app.host.querySelectorAll('.meal-unit').length, 24);
+  const selector = 'input[aria-label="ビールの食べた・飲んだ数"]';
+  const summary = app.host.querySelector<HappyElement>('.meal-choice-numeric summary');
+  assert.ok(summary);
+  await act(async () => summary.click());
+  assert.equal(summary.closest('details')?.hasAttribute('open'), true);
+  for (const value of ['-1', '1.5', '998', '1000']) {
+    const input = await app.input(selector, value);
+    assert.equal(input.checkValidity(), false, `invalid consumed count ${value}`);
+    assert.equal(app.button('この金額で完了').disabled, true);
+    await app.click('この金額で完了');
+    assert.equal(app.selections.length, 0);
+  }
+  const input = await app.input(selector, '997');
+  assert.equal(input.max, '997');
+  assert.equal(input.checkValidity(), true);
+  assert.equal(app.button('この金額で完了').disabled, false);
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 997 });
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '997');
+  assert.equal(app.host.querySelectorAll('.meal-unit').length, 24);
+  await app.input(selector, '');
+  assert.deepEqual(app.selections.at(-1), { itemIds: [], quantities: {}, done: false });
+  assert.equal(app.button('この金額で完了').disabled, false);
+});
+
+test('finishing after changing a large-order count saves the new count rather than the previous amount', async (t) => {
+  const room = fixedRoom();
+  room.items[0].quantity = 20;
+  room.items[0].amount = 12000;
+  room.total = 13200;
+  room.selections.a = ['beer'];
+  room.selectionQuantities!.a = { beer: 1 };
+  const app = await mountApp(t, room);
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  const summary = app.host.querySelector<HappyElement>('.meal-choice-numeric summary');
+  assert.ok(summary);
+  await act(async () => summary.click());
+  await app.input('input[aria-label="ビールの食べた・飲んだ数"]', '5');
+  assert.deepEqual(app.selections.at(-1)?.quantities, { beer: 5 });
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥3,300');
+  await app.click('この金額で完了');
+  assert.deepEqual(app.selections.at(-1), {
+    itemIds: ['beer'],
+    quantities: { beer: 5 },
+    done: true,
+  });
+  assert.equal(app.host.querySelector('.personal-final-amount')?.textContent, '￥3,300');
 });
 
 for (const completeArea of ['.amount-card', '.mobile-amount-bar']) {
@@ -410,9 +673,9 @@ for (const completeArea of ['.amount-card', '.mobile-amount-bar']) {
     assert.equal(app.host.querySelector('.unassigned'), null);
     assert.equal(app.button('この金額で確定').disabled, false);
     await app.click('自分の分を選び直す');
-    assert.equal(app.button('ドリンクの数を増やす').disabled, true);
+    assert.equal(app.tile('ドリンク', 3).disabled, true);
     assert.equal(app.button('ピザ：選択済み').getAttribute('aria-pressed'), 'true');
-    await app.click('ドリンクの数を減らす');
+    await app.clickTile('ドリンク', 2);
     assert.deepEqual(app.selections.at(-1), {
       itemIds: ['drink', 'pizza'],
       quantities: { drink: 1 },
@@ -431,7 +694,7 @@ test('failed completion keeps the selection screen and selected quantities avail
   assert.equal(app.host.querySelector('.settlement-panel'), null);
   assert.match(app.host.textContent, /保存できませんでした/);
   assert.equal(app.host.ownerDocument.activeElement, app.host.querySelector('.room-error'));
-  assert.equal(app.button('ドリンクの数を増やす').disabled, true);
+  assert.equal(app.tile('ドリンク', 3).disabled, true);
   assert.equal(app.button('ピザ：選択済み').getAttribute('aria-pressed'), 'true');
   await app.click('選択を終える');
   assert.ok(app.host.querySelector('.settlement-panel'));
@@ -460,7 +723,7 @@ test('returning after completion opens the amounts and permits another edit', as
   assert.ok(app.host.querySelector('.settlement-panel'));
   assert.match(app.host.textContent, /あなたの入力は完了です/);
   await app.click('自分の分を選び直す');
-  await app.click('ドリンクの数を増やす');
+  await app.clickTile('ドリンク', 1);
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['pizza', 'drink'],
     quantities: { drink: 1 },
@@ -479,10 +742,11 @@ test('finalized selections keep both quantity and shared controls read-only', as
   );
   assert.ok(itemsTab);
   await act(async () => itemsTab.click());
-  assert.equal(app.button('ドリンクの数を減らす').disabled, true);
-  assert.equal(app.button('ドリンクの数を増やす').disabled, true);
+  assert.equal(app.tile('ドリンク', 1).disabled, true);
+  assert.equal(app.tile('ドリンク', 2).disabled, true);
+  assert.equal(app.tile('ドリンク', 3).disabled, true);
   assert.equal(app.button('ピザ：選択済み').disabled, true);
-  await app.click('ドリンクの数を減らす');
+  await app.clickTile('ドリンク', 1);
   await app.click('ピザ：選択済み');
   assert.equal(app.selections.length, 0);
 });

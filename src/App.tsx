@@ -198,7 +198,7 @@ export default function App() {
               </h1>
               <p className="home-intro">
                 家飲みの食材・お酒の買い出しも、居酒屋の注文も。
-                料理はみんなで割り勘、ドリンクは自分の分。レシートを共有し、食べた・飲んだ数を入れると、立て替えた人に返す金額が分かります。
+                料理はみんなで割り勘、ドリンクは自分の分。レシートを共有し、食べた・飲んだ分を選ぶと、立て替えた人に返す金額が分かります。
               </p>
               <p className="home-availability">会員登録・アプリのインストールは不要です。</p>
               <div
@@ -356,7 +356,7 @@ export default function App() {
             <li>
               <strong>リンクをみんなに共有</strong>
               <p>
-                参加者は名前を入れ、自分のドリンクなどの数を入力します。立て替えた人も入力してください。
+                参加者は名前を入れ、食べた・飲んだ分だけタイルを選びます。立て替えた人も選んでください。
               </p>
             </li>
             <li>
@@ -469,8 +469,8 @@ function Editor({
                 onChange={(e) => setTitle(e.target.value)}
               />
             </label>
-            <label className="form-field">
-              立て替えた人
+            <label className="sentence-field payer-sentence">
+              <span className="sr-only">立て替えた人</span>
               <input
                 required
                 maxLength={24}
@@ -479,26 +479,24 @@ function Editor({
                 value={payerName}
                 onChange={(e) => setPayerName(e.target.value)}
               />
+              <span aria-hidden="true">が立て替え</span>
             </label>
-            <div className="participant-count-field">
-              <label className="form-field" htmlFor="participant-count">
-                人数（自分も含む）
-              </label>
-              <div className="input-with-unit">
-                <input
-                  id="participant-count"
-                  type="number"
-                  required
-                  min="1"
-                  max="100"
-                  step="1"
-                  inputMode="numeric"
-                  value={participantCount}
-                  onChange={(e) => setParticipantCount(e.target.value)}
-                />
-                <span aria-hidden="true">人</span>
-              </div>
-            </div>
+            <label className="sentence-field participant-sentence">
+              <span aria-hidden="true">自分も含めて</span>
+              <input
+                id="participant-count"
+                aria-label="人数（自分も含む）"
+                type="number"
+                required
+                min="1"
+                max="100"
+                step="1"
+                inputMode="numeric"
+                value={participantCount}
+                onChange={(e) => setParticipantCount(e.target.value)}
+              />
+              <span aria-hidden="true">人で割り勘</span>
+            </label>
           </div>
           <h2 className="editor-section-title">料理・飲み物</h2>
           <div className="editable-items">
@@ -685,7 +683,10 @@ function RoomPage({
   const [tab, setTab] = useState<'items' | 'summary'>('items');
   const [error, setError] = useState('');
   const [connectionError, setConnectionError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [requestBusy, setBusy] = useState(false);
+  const [selectionSaving, setSelectionSaving] = useState(false);
+  const [invalidSelectionDrafts, setInvalidSelectionDrafts] = useState<Set<string>>(new Set());
+  const busy = requestBusy || selectionSaving;
   const [sharing, setSharing] = useState(openShareInitially);
   const [confirming, setConfirming] = useState<{
     action: 'close' | 'reopen';
@@ -753,6 +754,7 @@ function RoomPage({
     try {
       applyRoom(await request<Room>(`/rooms/${id}${path}`, data, identity, method));
       success?.();
+      return true;
     } catch (e) {
       setError(errorText(e));
       if (path === '/close') setConfirming(null);
@@ -764,6 +766,7 @@ function RoomPage({
           // Keep the original selection error; polling will retry the refresh.
         }
       }
+      return false;
     } finally {
       setBusy(false);
     }
@@ -847,10 +850,12 @@ function RoomPage({
         : selected.filter((id) => id !== item.id);
     const data = selectionData(itemIds);
     if (quantity > 0 && getItemSplitMode(item) === 'quantity') data.quantities[item.id] = quantity;
-    void mutate('/selection', data, 'PUT');
+    return mutate('/selection', data, 'PUT');
   };
-  const finishSelection = () =>
+  const finishSelection = () => {
+    if (busy || invalidSelectionDrafts.size > 0) return;
     void mutate('/selection', selectionData(selected, true), 'PUT', () => setTab('summary'));
+  };
   const finishLabel = fixedAmounts
     ? 'この金額で完了'
     : selected.length
@@ -859,7 +864,7 @@ function RoomPage({
   const selectionGroups = [
     {
       mode: 'quantity' as const,
-      title: '飲んだ・食べた数',
+      title: '食べた・飲んだ分をタップ',
       hint: '',
     },
     {
@@ -991,7 +996,7 @@ function RoomPage({
                     ? 'あなたの明細'
                     : fixedAmounts
                       ? hasIndividualItems
-                        ? '食べた・飲んだ数'
+                        ? '食べた・飲んだ分をタップ'
                         : 'あなたの金額を確認'
                       : '自分の分を選んでください'}
                 </h2>
@@ -1024,6 +1029,16 @@ function RoomPage({
                       allocation={settlement.itemAllocations.find((a) => a.itemId === item.id)!}
                       busy={busy}
                       onChange={(quantity) => changeQuantity(item, quantity)}
+                      onSavingChange={setSelectionSaving}
+                      onDraftChange={(invalid) => {
+                        setInvalidSelectionDrafts((current) => {
+                          if (current.has(item.id) === invalid) return current;
+                          const next = new Set(current);
+                          if (invalid) next.add(item.id);
+                          else next.delete(item.id);
+                          return next;
+                        });
+                      }}
                     />
                   ))}
                 </section>
@@ -1103,7 +1118,7 @@ function RoomPage({
               <>
                 <button
                   className="button primary full selection-finish"
-                  disabled={busy}
+                  disabled={busy || invalidSelectionDrafts.size > 0}
                   onClick={finishSelection}
                 >
                   {busy ? <Spinner /> : <Check size={18} />}
@@ -1132,7 +1147,7 @@ function RoomPage({
                       : 'あなたの入力は完了です'
                     : fixedAmounts
                       ? hasIndividualItems
-                        ? '食べた・飲んだ数を確認'
+                        ? '食べた・飲んだ分を確認'
                         : '金額を確認'
                       : '自分の分を選んでください'}
                 </h2>
@@ -1161,10 +1176,10 @@ function RoomPage({
                 {fixedAmounts
                   ? member.done
                     ? hasIndividualItems
-                      ? '数を直す'
+                      ? '選び直す'
                       : '明細を見る'
                     : hasIndividualItems
-                      ? '数と金額を確認する'
+                      ? '食べた・飲んだ分を選ぶ'
                       : '金額を確認する'
                   : member.done
                     ? '自分の分を選び直す'
@@ -1345,7 +1360,11 @@ function RoomPage({
             </span>
             <strong>{yen(myAmount)}</strong>
           </div>
-          <button className="button primary" disabled={busy} onClick={finishSelection}>
+          <button
+            className="button primary"
+            disabled={busy || invalidSelectionDrafts.size > 0}
+            onClick={finishSelection}
+          >
             {busy ? <Spinner /> : <Check size={17} />}
             {finishLabel}
           </button>
@@ -1384,7 +1403,7 @@ function RoomPage({
                 ? '締め切ると、飲んだ数・食べた数を変更できなくなります。'
                 : '参加者と金額を確認してください。確定すると選び直しができなくなり、返す金額が決まります。'
               : fixedAmounts
-                ? '全員が食べた・飲んだ数を直せます。受け取り済みの記録はリセットされます。'
+                ? '全員が食べた・飲んだ分を選び直せます。受け取り済みの記録はリセットされます。'
                 : '全員が飲んだもの・食べたものを選び直せます。受け取り済みの記録はリセットされます。'}
           </p>
           <div className="confirm-amount">
@@ -1579,7 +1598,7 @@ function ShareModal({
                   text: room.closed
                     ? '返す相手と金額を確認してください。'
                     : room.calculationMode === 'fixed-participants'
-                      ? '食べた・飲んだ数を入力して、返す金額を確認してください。'
+                      ? '食べた・飲んだ分を選んで、返す金額を確認してください。'
                       : '飲んだもの・食べたものを選んでください。',
                   url,
                 });

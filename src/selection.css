@@ -25,7 +25,28 @@
 }
 
 .meal-choice-share {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
+}
+
+.meal-choice-saving {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  animation: meal-choice-spin 1s linear infinite;
+}
+
+@keyframes meal-choice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meal-choice-saving {
+    animation: none;
+  }
 }
 
 .meal-choice-denominator {
@@ -34,32 +55,8 @@
   font-weight: 400;
 }
 
-.meal-choice-stepper {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-  border-radius: var(--radius-control);
-  background: var(--color-soft);
-}
-
-.meal-choice-stepper > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  flex-shrink: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-action);
-}
-
 .meal-choice-count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 56px;
-  padding: var(--space-1);
+  margin-left: auto;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
@@ -70,6 +67,129 @@
   font-size: var(--font-input);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.meal-choice-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.meal-unit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.meal-unit[aria-pressed='true'] {
+  border-color: var(--color-action);
+  background: var(--color-selected);
+  color: var(--color-action);
+}
+
+@media (hover: hover) {
+  .meal-unit:not(:disabled):hover {
+    border-color: var(--color-action);
+  }
+
+  .meal-unit[aria-pressed='true']:not(:disabled):hover {
+    background: var(--color-selected-strong);
+  }
+}
+
+.meal-unit:disabled {
+  opacity: 1;
+}
+
+.meal-unit.is-taken {
+  border-color: transparent;
+  background: var(--color-soft);
+  color: var(--color-control-border);
+}
+
+.meal-unit-mark {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+}
+
+.meal-unit-mark.is-selected {
+  background: var(--color-action);
+  color: var(--color-on-dark);
+}
+
+.meal-unit-mark.is-person {
+  background: var(--color-soft);
+  color: var(--color-text-muted);
+}
+
+.meal-choice-overflow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.meal-choice-more,
+.meal-choice-numeric > summary {
+  min-height: var(--control-height);
+  color: var(--color-text-muted);
+  font-size: var(--font-small);
+  cursor: pointer;
+}
+
+.meal-choice-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  background: transparent;
+}
+
+.meal-choice-numeric > summary {
+  width: fit-content;
+  align-content: center;
+}
+
+.meal-choice-numeric-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.meal-choice-numeric input {
+  width: 84px;
+  min-height: var(--control-height);
+  text-align: center;
+}
+
+.meal-choice-numeric input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.meal-choice-numeric-error {
+  margin: 0 0 var(--space-2);
+  color: var(--color-danger);
+  font-size: var(--font-small);
 }
 
 .meal-choice-toggle {
@@ -92,7 +212,6 @@
   background: var(--color-selected);
 }
 
-.meal-choice-stepper > button:not(:disabled):hover,
 .meal-choice-toggle:not(:disabled):hover {
   background: var(--color-selected-strong);
 }
@@ -121,7 +240,10 @@
   margin-left: var(--space-3);
 }
 
-.meal-choice-others > summary:focus-visible {
+.meal-choice-others > summary:focus-visible,
+.meal-choice-numeric > summary:focus-visible,
+.meal-unit:focus-visible,
+.meal-choice-more:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: var(--radius-small);
