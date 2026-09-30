@@ -53,11 +53,33 @@ function mixedRoom(): Room {
   };
 }
 
+function fixedRoom(): Room {
+  return {
+    ...mixedRoom(),
+    title: '4人の飲み会',
+    payerId: 'b',
+    calculationMode: 'fixed-participants',
+    participantCount: 4,
+    items: [
+      { id: 'beer', name: 'ビール', amount: 1800, quantity: 3, splitMode: 'quantity' },
+      { id: 'food', name: '唐揚げ', amount: 1200, quantity: 1, splitMode: 'equal' },
+    ],
+    total: 3000,
+    members: [
+      { id: 'b', name: 'はる', done: false },
+      { id: 'a', name: 'あき', done: false },
+    ],
+    selections: { a: [], b: [] },
+    selectionQuantities: { a: {}, b: {} },
+  };
+}
+
 type SelectionBody = { itemIds: string[]; quantities: Record<string, number>; done: boolean };
 type CreationBody = {
   title: string;
   payerName: string;
   participantCount: number;
+  calculationMode: 'fixed-participants';
   items: ReceiptItem[];
   total: number;
 };
@@ -83,6 +105,7 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
         ...room,
         title: body.title,
         participantCount: body.participantCount,
+        calculationMode: body.calculationMode,
         total: body.total,
         items: body.items,
         members: [{ id: 'a', name: body.payerName, done: false }],
@@ -152,16 +175,27 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
     assert.ok(button, `missing button ${text}`);
     return button;
   };
+  const radio = (text: string) => {
+    const radio = Array.from(host.querySelectorAll<HappyInput>('input[type="radio"]')).find(
+      (element) => element.getAttribute('aria-label') === text,
+    );
+    assert.ok(radio, `missing radio ${text}`);
+    return radio;
+  };
   return {
     host,
     selections,
     creations,
     button,
+    radio,
     failNextSelection(message: string) {
       selectionFailure = message;
     },
     async click(text: string) {
       await act(async () => button(text).click());
+    },
+    async choose(text: string) {
+      await act(async () => radio(text).click());
     },
     async input(selector: string, value: string) {
       const input = host.querySelector(selector);
@@ -189,32 +223,40 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
 test('editor submits purchased counts and chosen split modes without multiplying row totals', async (t) => {
   const app = await mountApp(t);
   await app.click('手入力ではじめる');
-  assert.equal(app.button('1行目：各自').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.radio('1行目：各自').checked, true);
+  assert.equal(app.radio('1行目：全員で割り勘').checked, false);
   await app.input('input[placeholder="例：金曜の家飲み"]', '夕食');
   await app.input('input[placeholder="例：あおい"]', 'あき');
   const participantCount = await app.input('#participant-count', '');
   assert.equal(participantCount.value, '');
   assert.equal(participantCount.validity.valueMissing, true);
   await app.input('#participant-count', '3');
-  await app.input('input[aria-label="1行目の名前"]', 'ドリンク');
-  await app.input('input[aria-label="1行目の金額"]', '1200');
+  await app.input('input[aria-label="1行目の品名"]', 'ドリンク');
+  await app.input('input[aria-label="1行目：この品の合計"]', '1200');
   const quantity = await app.input('input[aria-label="1行目の数量"]', '');
   assert.equal(quantity.value, '', 'clearing the field must leave an editable blank');
   assert.equal(quantity.validity.valueMissing, true);
   await app.input('input[aria-label="1行目の数量"]', '2');
-  assert.equal(app.button('1行目：各自').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.radio('1行目：各自').checked, true);
+  assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '1200');
   await app.click('料理・飲み物を追加');
-  assert.equal(app.button('2行目：各自').getAttribute('aria-pressed'), 'true');
-  await app.input('input[aria-label="2行目の名前"]', 'ピザ');
-  await app.input('input[aria-label="2行目の金額"]', '900');
+  assert.equal(app.radio('2行目：各自').checked, true);
+  assert.equal(app.radio('2行目：全員で割り勘').checked, false);
+  assert.equal(app.radio('2行目：各自').name, app.radio('2行目：全員で割り勘').name);
+  assert.notEqual(app.radio('1行目：各自').name, app.radio('2行目：各自').name);
+  await app.input('input[aria-label="2行目の品名"]', 'ピザ');
+  await app.input('input[aria-label="2行目：この品の合計"]', '900');
   await app.input('input[aria-label="2行目の数量"]', '2');
-  await app.click('2行目：シェア');
-  assert.equal(app.button('2行目：シェア').getAttribute('aria-pressed'), 'true');
-  assert.equal(app.button('2行目：各自').getAttribute('aria-pressed'), 'false');
-  assert.equal(app.button('1行目：各自').getAttribute('aria-pressed'), 'true');
+  await app.choose('2行目：全員で割り勘');
+  assert.equal(app.radio('2行目：全員で割り勘').checked, true);
+  assert.equal(app.radio('2行目：各自').checked, false);
+  assert.equal(app.radio('1行目：各自').checked, true);
+  assert.equal(app.radio('1行目：全員で割り勘').checked, false);
+  assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
   assert.equal(app.creations.length, 0, 'changing the split mode must not submit the form');
   await app.input('input[aria-label="2行目の数量"]', '3');
-  assert.equal(app.button('2行目：シェア').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.radio('2行目：全員で割り勘').checked, true);
+  assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
   await app.input('input[aria-label="2行目の数量"]', '2');
   assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
   await app.click('共有リンクを作る');
@@ -233,10 +275,59 @@ test('editor submits purchased counts and chosen split modes without multiplying
   );
   assert.equal(app.creations[0].total, 2100);
   assert.equal(app.creations[0].participantCount, 3);
+  assert.equal(app.creations[0].calculationMode, 'fixed-participants');
   assert.match(app.host.textContent, /1 \/ 3人が参加/);
   assert.match(app.host.textContent, /0 \/ 3人が入力完了/);
   assert.equal(app.button('ドリンクの数を増やす').disabled, false);
-  assert.equal(app.button('ピザ：選ぶ').getAttribute('aria-pressed'), 'false');
+  assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
+  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /ピザ￥300/);
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
+});
+
+test('fixed participant selects one beer and finishes at 900 yen without choosing shared food or waiting', async (t) => {
+  const app = await mountApp(t, fixedRoom());
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
+  assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
+  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /唐揚げ￥300/);
+  await app.click('ビールの数を増やす');
+  assert.deepEqual(app.selections.at(-1), {
+    itemIds: ['beer'],
+    quantities: { beer: 1 },
+    done: false,
+  });
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  await app.click('この金額で完了');
+  assert.deepEqual(app.selections.at(-1), {
+    itemIds: ['beer'],
+    quantities: { beer: 1 },
+    done: true,
+  });
+  assert.ok(app.host.querySelector('.settlement-panel'));
+  assert.equal(app.host.querySelector('.personal-final-amount')?.textContent, '￥900');
+  assert.match(app.host.textContent, /あなたの金額が決まりました/);
+  assert.match(app.host.textContent, /はるさんに返す金額です/);
+  assert.doesNotMatch(app.host.textContent, /入力を待っています|確定するのを待っています/);
+  assert.match(app.host.textContent, /1 \/ 4人が入力完了/);
+  await app.click('自分の入力を直す');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
+});
+
+test('fixed shared-only receipt completes by confirming the amount without entering order counts', async (t) => {
+  const room = fixedRoom();
+  room.items = [room.items[1]];
+  room.total = 1200;
+  const app = await mountApp(t, room);
+  assert.equal(app.host.querySelector('.meal-choice'), null);
+  assert.equal(app.host.querySelector('.selection-group'), null);
+  assert.equal(app.host.querySelector('.selection-heading h2')?.textContent, 'あなたの金額を確認');
+  assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
+  assert.doesNotMatch(app.host.textContent, /自分の注文数を入力|自分の分なしで完了/);
+  await app.click('この金額で完了');
+  assert.deepEqual(app.selections.at(-1), { itemIds: [], quantities: {}, done: true });
+  assert.ok(app.host.querySelector('.settlement-panel'));
+  assert.equal(app.host.querySelector('.personal-final-amount')?.textContent, '￥300');
+  assert.doesNotMatch(app.host.textContent, /入力を待っています|確定するのを待っています/);
 });
 
 test('quantity controls and shared-item toggles preserve each other and stop at the purchased count', async (t) => {
@@ -393,7 +484,7 @@ test('summary exposes the remaining units and their unpaid amount before allowin
 test('creation requires an integer participant count within the supported range', async (t) => {
   const app = await mountApp(t);
   await app.click('サンプルで試す');
-  assert.equal(app.button('1行目：各自').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.radio('1行目：各自').checked, true);
   await app.input('input[placeholder="例：あおい"]', 'あき');
   for (const value of ['', '0', '1.5', '101']) {
     const input = await app.input('#participant-count', value);

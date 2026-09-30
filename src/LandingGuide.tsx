@@ -12,13 +12,13 @@ const steps = [
     icon: Link,
     title: 'リンクを共有',
     description:
-      '飲み会のメンバーにリンクを送ります。それぞれが名前を入力し、飲んだもの・食べたものを選びます。立て替えた人も選びます。',
+      '飲み会のメンバーにリンクを送ります。それぞれが名前を入力し、自分のドリンクなど、飲んだ数・食べた数を入力します。',
   },
   {
     icon: CheckCheck,
     title: '返す金額を確認',
     description:
-      '全員が選び終え、選び忘れや数の残りがなくなったら、立て替えた人が金額を確定。それぞれが表示された金額を返します。',
+      'みんなで分ける料理は、最初の人数で割って自動で加算。自分の入力を終えたら、ほかの人を待たずに返す金額が分かります。',
   },
 ];
 
@@ -26,7 +26,12 @@ const questions = [
   {
     title: 'お酒を飲んでいない人も、お酒代を払う？',
     answer:
-      '自分が飲んだもの・食べたものだけを選びます。お酒を選ばなければ、お酒代はかかりません。シェアした料理や食材も、それを選んだ人だけで分けます。',
+      '自分のドリンクは、入力した数だけかかります。飲んでいなければ0杯のままで大丈夫です。人数で分ける設定にしたボトルのお酒などは、全員の金額に含まれます。',
+  },
+  {
+    title: 'ほかの人の入力で、自分の金額も変わる？',
+    answer:
+      '変わりません。自分のドリンクなどは1つあたりの金額、みんなで分ける料理は最初の人数で計算します。みんなで分ける料理を選ぶ操作は不要です。',
   },
   {
     title: '会員登録は必要ですか？',
@@ -41,12 +46,12 @@ const questions = [
   {
     title: '税や値引き、割り切れない金額はどうなりますか？',
     answer:
-      '入力した金額の合計と実際の会計額の差は、それぞれの料理・飲み物の金額に応じて分けます。端数は1円単位で調整し、すべて選び終えると全員の合計が会計額に一致します。',
+      '入力した金額の合計と実際の会計額の差は、それぞれの料理・飲み物の金額に応じて分けます。数量や人数で割り切れない分は、立て替えた人の負担に含めます。全員の入力がそろうと、合計が会計額に一致します。',
   },
   {
     title: 'レシわけで送金できますか？',
     answer:
-      '送金機能はありません。表示された金額を現金や普段使っている決済サービスで返してください。立て替えた人は、受け取り済みかどうかを記録できます。',
+      '送金機能はありません。表示された金額を現金や普段使っている決済サービスで返してください。全員の入力がそろったら、立て替えた人が入力を締め切り、受け取り済みかどうかを記録できます。',
   },
   {
     title: '写真や割り勘の内容は誰に見えますか？',
@@ -61,13 +66,13 @@ export default function LandingGuide() {
       <section className="landing-section" aria-labelledby="split-examples-title">
         <h2 id="split-examples-title">自分のドリンクも、分け合った料理も</h2>
         <p className="landing-section-intro">
-          家飲みでも居酒屋でも、同じレシートの中で「各自」と「シェア」を選べます。
+          4人で飲み会。ビールを1杯飲んだら600円、みんなの唐揚げは1人300円。返す金額は900円です。
         </p>
         <div className="split-examples">
           <article className="split-example">
             <h3>
               <Beer size={22} aria-hidden="true" />
-              各自
+              自分のドリンク
             </h3>
             <p>自分のドリンクなどは、飲んだ数・食べた数で。</p>
             <div className="split-example-receipt">
@@ -75,14 +80,14 @@ export default function LandingGuide() {
                 <span>生ビール 3杯</span>
                 <strong>¥1,800</strong>
               </div>
-              <p>居酒屋で、Aさんが2杯・Bさんが1杯</p>
+              <p>1杯600円。自分が飲んだ数を入力</p>
               <dl className="split-example-amounts">
                 <div>
-                  <dt>Aさん</dt>
+                  <dt>Aさん・2杯</dt>
                   <dd>¥1,200</dd>
                 </div>
                 <div>
-                  <dt>Bさん</dt>
+                  <dt>Bさん・1杯</dt>
                   <dd>¥600</dd>
                 </div>
               </dl>
@@ -91,23 +96,23 @@ export default function LandingGuide() {
           <article className="split-example">
             <h3>
               <CookingPot size={22} aria-hidden="true" />
-              シェア
+              みんなの料理
             </h3>
-            <p>料理・食材・ボトルのお酒などは、一緒に飲食した人だけで均等に。</p>
+            <p>取り分ける料理や家飲みの食材は、最初の人数で。</p>
             <div className="split-example-receipt">
               <div className="split-example-item">
-                <span>鍋の食材</span>
-                <strong>¥2,400</strong>
+                <span>唐揚げ 1皿</span>
+                <strong>¥1,200</strong>
               </div>
-              <p>家飲みの買い出し。AさんとBさんで食べたら</p>
+              <p>4人なら1人300円。全員に自動で加算</p>
               <dl className="split-example-amounts">
                 <div>
                   <dt>Aさん</dt>
-                  <dd>¥1,200</dd>
+                  <dd>¥300</dd>
                 </div>
                 <div>
                   <dt>Bさん</dt>
-                  <dd>¥1,200</dd>
+                  <dd>¥300</dd>
                 </div>
               </dl>
             </div>

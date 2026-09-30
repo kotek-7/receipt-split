@@ -6,7 +6,9 @@
   border-top: 1px solid var(--color-border);
 }
 
+.meal-choice-heading h3,
 .meal-choice-heading h4 {
+  margin: 0;
   font-size: var(--font-input);
   font-weight: 600;
   line-height: 1.6;

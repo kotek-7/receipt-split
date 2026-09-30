@@ -23,6 +23,7 @@ export default function ItemSelection({
 }) {
   const quantity = getSelectionQuantity(room, memberId, item);
   const byQuantity = getItemSplitMode(item) === 'quantity';
+  const ItemHeading = room.calculationMode === 'fixed-participants' ? 'h3' : 'h4';
   const eaters = room.members.filter((member) => getSelectionQuantity(room, member.id, item) > 0);
   return (
     <div
@@ -31,7 +32,7 @@ export default function ItemSelection({
       aria-label={item.name}
     >
       <div className="meal-choice-heading">
-        <h4>{item.name}</h4>
+        <ItemHeading>{item.name}</ItemHeading>
         <p className="meal-choice-total">
           全体 {yen(allocation.amount)} <span>· 数量 {getItemQuantity(item)}</span>
         </p>
