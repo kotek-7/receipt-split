@@ -404,6 +404,9 @@ function Editor({
   const [total, setTotal] = useState(draft.total);
   const [totalEdited, setTotalEdited] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const updateItems = (next: ReceiptItem[]) => {
     setItems(next);
