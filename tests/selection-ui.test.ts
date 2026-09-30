@@ -232,7 +232,7 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.equal(participantCount.validity.valueMissing, true);
   await app.input('#participant-count', '3');
   await app.input('input[aria-label="1行目の品名"]', 'ドリンク');
-  await app.input('input[aria-label="1行目：この品の合計"]', '1200');
+  await app.input('input[aria-label="1行目の合計金額"]', '1200');
   const quantity = await app.input('input[aria-label="1行目の数量"]', '');
   assert.equal(quantity.value, '', 'clearing the field must leave an editable blank');
   assert.equal(quantity.validity.valueMissing, true);
@@ -245,7 +245,7 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.equal(app.radio('2行目：各自').name, app.radio('2行目：全員で割り勘').name);
   assert.notEqual(app.radio('1行目：各自').name, app.radio('2行目：各自').name);
   await app.input('input[aria-label="2行目の品名"]', 'ピザ');
-  await app.input('input[aria-label="2行目：この品の合計"]', '900');
+  await app.input('input[aria-label="2行目の合計金額"]', '900');
   await app.input('input[aria-label="2行目の数量"]', '2');
   await app.choose('2行目：全員で割り勘');
   assert.equal(app.radio('2行目：全員で割り勘').checked, true);
@@ -280,7 +280,12 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.match(app.host.textContent, /0 \/ 3人が入力完了/);
   assert.equal(app.button('ドリンクの数を増やす').disabled, false);
   assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
-  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /ピザ￥300/);
+  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /ピザ/);
+  assert.equal(app.host.querySelector('.included-items .amount-ratio strong')?.textContent, '300');
+  assert.equal(
+    app.host.querySelector('.included-items .amount-ratio .ratio-total')?.textContent.trim(),
+    '/ 900',
+  );
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
 });
 
@@ -288,7 +293,12 @@ test('fixed participant selects one beer and finishes at 900 yen without choosin
   const app = await mountApp(t, fixedRoom());
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥300');
   assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
-  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /唐揚げ￥300/);
+  assert.match(app.host.querySelector('.included-items')?.textContent ?? '', /唐揚げ/);
+  assert.equal(app.host.querySelector('.included-items .amount-ratio strong')?.textContent, '300');
+  assert.equal(
+    app.host.querySelector('.included-items .amount-ratio .ratio-total')?.textContent.trim(),
+    '/ 1,200',
+  );
   await app.click('ビールの数を増やす');
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['beer'],
@@ -296,6 +306,18 @@ test('fixed participant selects one beer and finishes at 900 yen without choosin
     done: false,
   });
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
+  assert.equal(app.host.querySelector('.meal-choice .amount-ratio strong')?.textContent, '600');
+  assert.equal(
+    app.host.querySelector('.meal-choice .amount-ratio .ratio-total')?.textContent.trim(),
+    '/ 1,800',
+  );
+  assert.equal(app.host.querySelector('.meal-choice-count strong')?.textContent, '1');
+  assert.equal(
+    app.host.querySelector('.meal-choice-denominator')?.textContent.trim(),
+    '/ 3',
+    'the denominator stays at the purchased count, not the two remaining beers',
+  );
+  assert.doesNotMatch(app.host.textContent, /自分の数/);
   await app.click('この金額で完了');
   assert.deepEqual(app.selections.at(-1), {
     itemIds: ['beer'],
@@ -304,11 +326,10 @@ test('fixed participant selects one beer and finishes at 900 yen without choosin
   });
   assert.ok(app.host.querySelector('.settlement-panel'));
   assert.equal(app.host.querySelector('.personal-final-amount')?.textContent, '￥900');
-  assert.match(app.host.textContent, /あなたの金額が決まりました/);
-  assert.match(app.host.textContent, /はるさんに返す金額です/);
+  assert.equal(app.host.querySelector('.selection-result h2')?.textContent, 'はるさんに返す金額');
   assert.doesNotMatch(app.host.textContent, /入力を待っています|確定するのを待っています/);
   assert.match(app.host.textContent, /1 \/ 4人が入力完了/);
-  await app.click('自分の入力を直す');
+  await app.click('数を直す');
   assert.equal(app.host.querySelector('.large-amount')?.textContent, '￥900');
   assert.equal(app.host.querySelector('.meal-choice-toggle'), null);
 });

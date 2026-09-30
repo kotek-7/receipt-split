@@ -609,6 +609,21 @@ label > input {
   display: block;
   margin-top: var(--space-2);
 }
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-small);
+  white-space: nowrap;
+}
+.inline-field > input,
+.inline-field > .input-with-unit {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+}
 .input-with-unit {
   display: block;
   position: relative;
@@ -633,14 +648,6 @@ label > input {
   padding: 0;
   margin: 0;
   border: 0;
-}
-.choice-group legend {
-  float: left;
-  padding: 0;
-  margin-right: var(--space-6);
-  line-height: var(--control-height);
-  color: var(--color-text-secondary);
-  font-size: var(--font-body);
 }
 .radio-options {
   display: flex;
@@ -683,7 +690,7 @@ label > input {
 }
 .form-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 136px;
+  grid-template-columns: minmax(0, 1fr) 144px;
   gap: var(--space-5) var(--space-6);
   margin-bottom: var(--space-10);
 }
@@ -693,35 +700,30 @@ label > input {
 .participant-count-field > .input-with-unit {
   margin-top: var(--space-2);
 }
-.participant-count-field p {
-  margin: var(--space-2) 0 0;
-}
-.item-editor-header p {
-  font-size: var(--font-small);
-  line-height: 1.8;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-3);
-}
-.split-mode-guide {
-  font-size: var(--font-small);
-  color: var(--color-text-muted);
-  line-height: 1.9;
-  margin-bottom: var(--space-2);
-}
 .editable-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px 156px 44px;
+  grid-template-columns: minmax(0, 1fr) 108px 200px 44px;
   gap: var(--space-3) var(--space-4);
-  padding: var(--space-6) 0;
+  padding: var(--space-4) 0;
   border-bottom: 1px solid var(--color-border);
-  align-items: end;
+  align-items: center;
+}
+.item-name-field > input {
+  margin: 0;
 }
 .item-quantity-field input {
   text-align: center;
   font-variant-numeric: tabular-nums;
+  padding-inline: var(--space-2);
+  appearance: textfield;
 }
 .item-split-options {
   grid-column: 1 / -1;
+}
+.item-quantity-field input::-webkit-inner-spin-button,
+.item-quantity-field input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
 }
 .editor-panel .delete-button {
   width: var(--control-height);
@@ -771,22 +773,25 @@ label > input {
 .total-input label {
   font-size: var(--font-body);
 }
-.total-input label > span {
-  display: block;
-  font-size: var(--font-small);
-  margin-top: var(--space-2);
-  color: var(--color-text-muted);
-  font-weight: 400;
-}
 .total-input > .input-with-unit {
   width: 180px;
   flex: 0 1 180px;
 }
-.adjustment-note {
-  font-size: var(--font-small);
-  line-height: 1.8;
+.receipt-adjustment {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
   color: var(--color-text-muted);
-  margin: calc(-1 * var(--space-3)) 0 var(--space-6);
+  font-size: var(--font-small);
+}
+.receipt-adjustment strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.editor-panel > .receipt-adjustment {
+  margin-bottom: var(--space-5);
 }
 .under-button {
   text-align: center;
@@ -1043,10 +1048,12 @@ label > input {
   outline: none;
 }
 .item-selection > .selection-heading {
-  padding: 0 0 var(--space-6);
+  padding: 0 0 var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
 }
 .item-selection > .selection-heading h2 {
-  font-size: var(--font-card-title);
+  font-size: var(--font-section);
 }
 .item-selection > .selection-heading p {
   font-size: var(--font-small);
@@ -1114,22 +1121,19 @@ label > input {
 .included-items h3 {
   font-size: var(--font-subheading);
 }
-.included-items > div > span,
-.included-items > p {
-  color: var(--color-text-muted);
-  font-size: var(--font-small);
-}
-.included-items > p {
-  margin: var(--space-2) 0 var(--space-4);
-}
 .included-items ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .included-items li {
-  padding: var(--space-3) 0;
-  font-size: var(--font-body);
+  padding: var(--space-4) 0;
+  font-size: var(--font-control);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.included-items li > .amount-ratio {
+  margin-left: auto;
 }
 .included-items li + li {
   border-top: 1px solid var(--color-border);
@@ -1138,7 +1142,6 @@ label > input {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.included-items strong,
 .amount-breakdown strong,
 .pending-participant-amount strong {
   flex-shrink: 0;
@@ -1161,12 +1164,29 @@ label > input {
   font-size: var(--font-small);
   border-bottom: 1px solid var(--color-border);
 }
-.selection-footnote {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--font-caption);
-  line-height: 1.8;
+.amount-ratio {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.amount-ratio strong {
+  color: var(--color-action);
+  font-size: var(--font-input);
+  font-weight: 600;
+}
+.amount-ratio.is-zero strong,
+.ratio-total,
+.ratio-unit,
+.ratio-caption {
   color: var(--color-text-muted);
-  background: var(--color-page);
+}
+.ratio-total,
+.ratio-unit,
+.ratio-caption {
+  font-size: var(--font-small);
+  font-weight: 400;
+}
+.ratio-caption {
+  white-space: nowrap;
 }
 .amount-card {
   border-radius: 0;
@@ -1651,8 +1671,21 @@ label > input {
     grid-template-columns: minmax(0, 1fr) 220px;
     gap: var(--space-5);
   }
-  .form-row {
-    grid-template-columns: 1fr;
+  .editor-layout.with-preview .editable-item {
+    grid-template-columns: 80px minmax(0, 1fr) 44px;
+  }
+  .editor-layout.with-preview .item-name-field {
+    grid-column: 1 / 3;
+  }
+  .editor-layout.with-preview .delete-button {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .editor-layout.with-preview .item-quantity-field {
+    grid-column: 1;
+  }
+  .editor-layout.with-preview .item-amount-field {
+    grid-column: 2 / -1;
   }
 }
 @media (max-width: 760px) {
@@ -1768,11 +1801,11 @@ label > input {
     padding: var(--space-2) 0;
   }
   .form-row {
-    grid-template-columns: minmax(0, 1fr) 104px;
+    grid-template-columns: minmax(0, 1fr) 130px;
     gap: var(--space-5) var(--space-4);
   }
   .editable-item {
-    grid-template-columns: 88px minmax(0, 1fr) 44px;
+    grid-template-columns: 80px minmax(0, 1fr) 44px;
     gap: var(--space-3) var(--space-4);
   }
   .item-name-field {
@@ -1788,14 +1821,9 @@ label > input {
   .item-amount-field {
     grid-column: 2 / -1;
   }
-  .total-input {
-    align-items: start;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
   .total-input > .input-with-unit {
-    width: 100%;
-    flex: auto;
+    width: 148px;
+    flex: 0 1 148px;
   }
   .editor-panel > .button {
     font-size: var(--font-body);

@@ -27,6 +27,7 @@ import { createItemId } from '../shared/id';
 import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession } from './api';
 import CameraCapture from './CameraCapture';
 import ItemSelection from './ItemSelection';
+import AmountRatio from './AmountRatio';
 import LandingGuide from './LandingGuide';
 import BrandMark from './BrandMark';
 
@@ -197,7 +198,7 @@ export default function App() {
               </h1>
               <p className="home-intro">
                 家飲みの食材・お酒の買い出しも、居酒屋の注文も。
-                料理はみんなで割り勘、ドリンクは自分の分。レシートを共有し、自分の注文数を入れると、立て替えた人に返す金額が分かります。
+                料理はみんなで割り勘、ドリンクは自分の分。レシートを共有し、食べた・飲んだ数を入れると、立て替えた人に返す金額が分かります。
               </p>
               <p className="home-availability">会員登録・アプリのインストールは不要です。</p>
               <div
@@ -451,14 +452,12 @@ function Editor({
       </button>
       <div className="page-heading">
         <h1>割り勘を作成</h1>
-        <p>料理・飲み物の内容を確認して、メンバーに送るリンクを作ります。</p>
       </div>
       <form
         onSubmit={submit}
         className={`editor-layout ${photo || draft.rawText ? 'with-preview' : ''}`}
       >
         <section className="editor-panel">
-          <h2 className="editor-section-title">飲み会の情報</h2>
           <div className="form-row">
             <label className="form-field event-name-field">
               飲み会の名前
@@ -471,7 +470,7 @@ function Editor({
               />
             </label>
             <label className="form-field">
-              立て替えた人（あなた）
+              立て替えた人
               <input
                 required
                 maxLength={24}
@@ -483,7 +482,7 @@ function Editor({
             </label>
             <div className="participant-count-field">
               <label className="form-field" htmlFor="participant-count">
-                割り勘人数
+                人数（自分も含む）
               </label>
               <div className="input-with-unit">
                 <input
@@ -494,29 +493,19 @@ function Editor({
                   max="100"
                   step="1"
                   inputMode="numeric"
-                  aria-describedby="participant-count-help"
                   value={participantCount}
                   onChange={(e) => setParticipantCount(e.target.value)}
                 />
                 <span aria-hidden="true">人</span>
               </div>
-              <p id="participant-count-help" className="muted small">
-                あなたを含む人数
-              </p>
             </div>
           </div>
-          <div className="item-editor-header">
-            <h2 className="editor-section-title">料理・飲み物</h2>
-            <p id="item-amount-help">金額は、単価ではなく数量分の合計を入力します。</p>
-          </div>
-          <p className="split-mode-guide" id="split-mode-help">
-            自分のドリンクは「各自」、取り分ける料理は「全員で割り勘」。
-          </p>
+          <h2 className="editor-section-title">料理・飲み物</h2>
           <div className="editable-items">
             {items.map((item, index) => (
               <div className="editable-item" key={item.id}>
                 <label className="form-field item-name-field">
-                  品名
+                  <span className="sr-only">品名</span>
                   <input
                     aria-label={`${index + 1}行目の品名`}
                     required
@@ -530,7 +519,7 @@ function Editor({
                     }
                   />
                 </label>
-                <label className="form-field item-quantity-field">
+                <label className="inline-field item-quantity-field">
                   数量
                   <input
                     aria-label={`${index + 1}行目の数量`}
@@ -547,12 +536,11 @@ function Editor({
                     }}
                   />
                 </label>
-                <label className="form-field item-amount-field">
-                  この品の合計
+                <label className="inline-field item-amount-field">
+                  合計
                   <span className="input-with-unit">
                     <input
-                      aria-label={`${index + 1}行目：この品の合計`}
-                      aria-describedby="item-amount-help"
+                      aria-label={`${index + 1}行目の合計金額`}
                       type="number"
                       required
                       min="1"
@@ -584,9 +572,8 @@ function Editor({
                 <fieldset
                   className="choice-group item-split-options"
                   aria-label={`${index + 1}行目の分け方`}
-                  aria-describedby="split-mode-help"
                 >
-                  <legend>分け方</legend>
+                  <legend className="sr-only">分け方</legend>
                   <div className="radio-options">
                     {[
                       { mode: 'quantity' as const, label: '各自' },
@@ -628,7 +615,7 @@ function Editor({
           </div>
           <div className="total-input">
             <label className="form-field" htmlFor="receipt-total">
-              支払った総額<span>税・値引きも含む金額</span>
+              支払った総額
             </label>
             <div className="input-with-unit">
               <input
@@ -650,16 +637,19 @@ function Editor({
             </div>
           </div>
           {total !== subtotal && (
-            <p className="adjustment-note">
-              税・値引きなどの差額 {yen(total - subtotal)} も、金額に応じて分けます。
-            </p>
+            <div className="receipt-adjustment">
+              <span>税・値引き</span>
+              <strong>
+                {total > subtotal ? '+' : ''}
+                {yen(total - subtotal)}
+              </strong>
+            </div>
           )}
           <ErrorMessage>{error}</ErrorMessage>
           <button className="button primary full large" disabled={busy}>
             {busy ? <Spinner /> : <Link size={18} />}共有リンクを作る
             <ArrowRight size={17} />
           </button>
-          <p className="under-button">リンクを送ると、みんなが自分の注文数を入力できます。</p>
         </section>
         {(photo || draft.rawText) && (
           <aside className="editor-aside">
@@ -870,7 +860,7 @@ function RoomPage({
     {
       mode: 'quantity' as const,
       title: '飲んだ・食べた数',
-      hint: '＋で自分の数を選んでください。',
+      hint: '',
     },
     {
       mode: 'equal' as const,
@@ -1001,20 +991,12 @@ function RoomPage({
                     ? 'あなたの明細'
                     : fixedAmounts
                       ? hasIndividualItems
-                        ? '自分の注文数を入力'
+                        ? '食べた・飲んだ数'
                         : 'あなたの金額を確認'
                       : '自分の分を選んでください'}
                 </h2>
-                <p>
-                  {room.closed
-                    ? '直す場合は、立て替えた人が「みんなの金額」から入力を再開します。'
-                    : fixedAmounts
-                      ? hasIndividualItems
-                        ? '＋で飲んだ・食べた数に合わせてください。頼んでいないものは0のままで。'
-                        : `すべて${participantCount}人で割り勘します。金額を確認して「この金額で完了」を押してください。`
-                      : '飲んでいない・食べていないものは、そのままでOKです。'}
-                </p>
               </div>
+              <span className="ratio-caption">負担 / 全体</span>
             </div>
             {selectionGroups.map((group) => {
               if (fixedAmounts && group.mode === 'equal') return null;
@@ -1025,12 +1007,12 @@ function RoomPage({
                   className="selection-group"
                   key={group.mode}
                   aria-labelledby={fixedAmounts ? undefined : `group-${group.mode}`}
-                  aria-label={fixedAmounts ? '自分の注文' : undefined}
+                  aria-label={fixedAmounts ? '食べた・飲んだもの' : undefined}
                 >
                   {!fixedAmounts && (
                     <div className="selection-group-heading">
                       <h3 id={`group-${group.mode}`}>{group.title}</h3>
-                      {!room.closed && <p>{group.hint}</p>}
+                      {!room.closed && group.hint && <p>{group.hint}</p>}
                     </div>
                   )}
                   {groupItems.map((item) => (
@@ -1051,56 +1033,48 @@ function RoomPage({
               <section className="included-items" aria-labelledby="included-heading">
                 <div>
                   <h3 id="included-heading">{participantCount}人で割り勘</h3>
-                  <span>あなたの分</span>
                 </div>
-                <p>1人{yen(includedAmount)}ずつ、金額に含めています。</p>
                 <ul>
                   {includedItems.map((item) => (
                     <li key={item.id}>
                       <span>{item.name}</span>
-                      <strong>
-                        {yen(
+                      <AmountRatio
+                        amount={
                           settlement.itemAllocations.find((a) => a.itemId === item.id)!
-                            .memberAmounts[member.id] || 0,
-                        )}
-                      </strong>
+                            .memberAmounts[member.id] || 0
+                        }
+                        total={settlement.itemAllocations.find((a) => a.itemId === item.id)!.amount}
+                      />
                     </li>
                   ))}
                 </ul>
               </section>
             )}
-            {fixedAmounts && settlement.roundingAmount > 0 && (
-              <p className="selection-footnote">
-                割り切れない端数の合計 {yen(settlement.roundingAmount)} は、立て替えた{payer.name}
-                さんの分に含めています。
-              </p>
-            )}
-            {room.total !== room.items.reduce((s, i) => s + i.amount, 0) && (
-              <p className="selection-footnote">
-                表示金額には、税・値引きなどの差額も含まれています。
-              </p>
+            {fixedAmounts && isOwner && settlement.roundingAmount > 0 && (
+              <div className="receipt-adjustment">
+                <span>端数</span>
+                <strong>{yen(settlement.roundingAmount)}</strong>
+              </div>
             )}
           </section>
           <aside className="amount-card">
             <h2>{isOwner ? 'あなたの分' : `${payer.name}さんに返す金額`}</h2>
             <div className="large-amount">{yen(myAmount)}</div>
-            <span className="amount-status">
-              {fixedAmounts
-                ? 'ほかの人の入力で金額は変わりません'
-                : room.closed
-                  ? '確定した金額です'
-                  : 'ほかの人の選択で金額が変わります'}
-            </span>
+            {!fixedAmounts && (
+              <span className="amount-status">
+                {room.closed ? '確定済み' : 'ほかの人の選択で金額が変わります'}
+              </span>
+            )}
             {fixedAmounts ? (
               <div className="amount-breakdown">
                 <div>
-                  <span>自分の注文</span>
+                  <span>食べた・飲んだ分</span>
                   <strong>
                     {yen(myAmount - includedAmount - (isOwner ? settlement.roundingAmount : 0))}
                   </strong>
                 </div>
                 <div>
-                  <span>{participantCount}人で割り勘した分</span>
+                  <span>{participantCount}人で割り勘</span>
                   <strong>{yen(includedAmount)}</strong>
                 </div>
                 {isOwner && settlement.roundingAmount > 0 && (
@@ -1135,11 +1109,6 @@ function RoomPage({
                   {busy ? <Spinner /> : <Check size={18} />}
                   {finishLabel}
                 </button>
-                <p className="under-button">
-                  {fixedAmounts
-                    ? '入力締め切り前なら、あとから直せます。'
-                    : '確定前なら、あとから選び直せます。'}
-                </p>
               </>
             )}
             <button className="text-button summary-link" onClick={() => setTab('summary')}>
@@ -1157,25 +1126,24 @@ function RoomPage({
                 <h2 ref={contentHeading} tabIndex={-1} className="room-content-heading">
                   {member.done
                     ? fixedAmounts
-                      ? 'あなたの金額が決まりました'
+                      ? isOwner
+                        ? 'あなたの負担'
+                        : `${payer.name}さんに返す金額`
                       : 'あなたの入力は完了です'
                     : fixedAmounts
-                      ? '自分の入力を完了してください'
+                      ? hasIndividualItems
+                        ? '食べた・飲んだ数を確認'
+                        : '金額を確認'
                       : '自分の分を選んでください'}
                 </h2>
               </div>
               {member.done && fixedAmounts && (
                 <div className="personal-final-amount">{yen(myAmount)}</div>
               )}
-              <p>
-                {!member.done
-                  ? fixedAmounts
-                    ? '自分の注文数と金額を確認し、「この金額で完了」を押してください。'
-                    : '飲んだもの・食べたものを選び、選択を終えてください。'
-                  : fixedAmounts
-                    ? isOwner
-                      ? 'あなたが負担する金額です。ほかの人の入力では変わりません。'
-                      : `${payer.name}さんに返す金額です。ほかの人を待たずに精算できます。`
+              {!fixedAmounts && (
+                <p>
+                  {!member.done
+                    ? '飲んだもの・食べたものを選び、選択を終えてください。'
                     : participantCount > doneCount
                       ? `あと${participantCount - doneCount}人の入力を待っています。`
                       : settlement.unassignedCount > 0
@@ -1183,7 +1151,8 @@ function RoomPage({
                         : isOwner
                           ? '全員の入力が揃いました。金額を確認して、下のボタンで確定してください。'
                           : `${payer.name}さんが金額を確定するのを待っています。`}
-              </p>
+                </p>
+              )}
               <button
                 className={member.done ? 'text-button' : 'button primary'}
                 onClick={() => setTab('items')}
@@ -1191,8 +1160,12 @@ function RoomPage({
                 {member.done ? <ArrowLeft size={15} /> : null}
                 {fixedAmounts
                   ? member.done
-                    ? '自分の入力を直す'
-                    : '自分の金額を確認する'
+                    ? hasIndividualItems
+                      ? '数を直す'
+                      : '明細を見る'
+                    : hasIndividualItems
+                      ? '数と金額を確認する'
+                      : '金額を確認する'
                   : member.done
                     ? '自分の分を選び直す'
                     : '自分の分を選ぶ'}
@@ -1212,13 +1185,13 @@ function RoomPage({
                     ? 'みんなの金額'
                     : 'みんなの金額（仮）'}
               </h2>
-              <p>
-                {room.closed
-                  ? 'お金を受け取ったら、立て替えた人が「受け取った」を押します。'
-                  : fixedAmounts
-                    ? 'それぞれの入力が終わると、その人の返す金額が決まります。'
+              {(room.closed || !fixedAmounts) && (
+                <p>
+                  {room.closed
+                    ? 'お金を受け取ったら、立て替えた人が「受け取った」を押します。'
                     : '全員の選択が終わると、立て替えた人が確定できます。'}
-              </p>
+                </p>
+              )}
             </div>
             <span className="summary-total">{yen(room.total)}</span>
           </div>
@@ -1338,12 +1311,16 @@ function RoomPage({
                   <p className="muted small">
                     {settlement.ready
                       ? fixedAmounts
-                        ? '全員の入力が揃いました。締め切ると、受け取りを記録できます。'
+                        ? '締め切ると受け取りを記録できます。'
                         : '全員の入力が完了しました。金額を確認して確定できます。'
                       : missingParticipants > 0
-                        ? `あと${missingParticipants}人の参加を待っています。共有リンクを送ってください。`
+                        ? fixedAmounts
+                          ? `参加 ${room.members.length} / ${participantCount}人`
+                          : `あと${missingParticipants}人の参加を待っています。共有リンクを送ってください。`
                         : fixedAmounts
-                          ? '全員の入力が終わり、数の残りがなくなると締め切れます。'
+                          ? doneCount < participantCount
+                            ? `入力完了 ${doneCount} / ${participantCount}人`
+                            : '残りの数を確認してください。'
                           : '全員が入力を完了し、選び忘れや数の残りがなくなると確定できます。'}
                   </p>
                 </>
@@ -1407,7 +1384,7 @@ function RoomPage({
                 ? '締め切ると、飲んだ数・食べた数を変更できなくなります。'
                 : '参加者と金額を確認してください。確定すると選び直しができなくなり、返す金額が決まります。'
               : fixedAmounts
-                ? '全員が自分の注文数を直せます。受け取り済みの記録はリセットされます。'
+                ? '全員が食べた・飲んだ数を直せます。受け取り済みの記録はリセットされます。'
                 : '全員が飲んだもの・食べたものを選び直せます。受け取り済みの記録はリセットされます。'}
           </p>
           <div className="confirm-amount">
@@ -1575,13 +1552,7 @@ function ShareModal({
   const [error, setError] = useState('');
   return (
     <Modal title="リンクを共有" onClose={onClose}>
-      <p className="modal-description">
-        {room.closed
-          ? '参加者にリンクを送って、返す相手と金額を共有できます。'
-          : room.calculationMode === 'fixed-participants'
-            ? '飲み会のメンバーにリンクを送ってください。それぞれが自分の注文数を入れると、返す金額が分かります。'
-            : '飲み会のメンバーにリンクを送ってください。名前を入力すると、飲んだもの・食べたものを選べます。'}
-      </p>
+      <p className="modal-description">飲み会のメンバーに送ってください。</p>
       <div className="qr-code">
         <QRCodeSVG value={url} size={164} fgColor="currentColor" marginSize={1} />
       </div>
@@ -1608,7 +1579,7 @@ function ShareModal({
                   text: room.closed
                     ? '返す相手と金額を確認してください。'
                     : room.calculationMode === 'fixed-participants'
-                      ? '自分の注文数を入力して、返す金額を確認してください。'
+                      ? '食べた・飲んだ数を入力して、返す金額を確認してください。'
                       : '飲んだもの・食べたものを選んでください。',
                   url,
                 });

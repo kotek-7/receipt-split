@@ -1,10 +1,8 @@
 import { Check, Minus, Plus } from 'lucide-react';
 import type { ItemAllocation, ReceiptItem, Room } from '../shared/types';
 import { getItemQuantity, getItemSplitMode, getSelectionQuantity } from '../shared/settlement';
+import AmountRatio from './AmountRatio';
 import './selection.css';
-
-const yen = (amount: number) =>
-  new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount);
 
 export default function ItemSelection({
   item,
@@ -23,8 +21,15 @@ export default function ItemSelection({
 }) {
   const quantity = getSelectionQuantity(room, memberId, item);
   const byQuantity = getItemSplitMode(item) === 'quantity';
+  const totalQuantity = getItemQuantity(item);
+  const myAmount = allocation.memberAmounts[memberId] || 0;
   const ItemHeading = room.calculationMode === 'fixed-participants' ? 'h3' : 'h4';
   const eaters = room.members.filter((member) => getSelectionQuantity(room, member.id, item) > 0);
+  const others = eaters.filter((member) => member.id !== memberId);
+  const othersQuantity = others.reduce(
+    (total, member) => total + getSelectionQuantity(room, member.id, item),
+    0,
+  );
   return (
     <div
       className={`meal-choice ${quantity > 0 ? 'meal-choice-selected' : ''}`}
@@ -33,14 +38,10 @@ export default function ItemSelection({
     >
       <div className="meal-choice-heading">
         <ItemHeading>{item.name}</ItemHeading>
-        <p className="meal-choice-total">
-          全体 {yen(allocation.amount)} <span>· 数量 {getItemQuantity(item)}</span>
-        </p>
       </div>
       <div className="meal-choice-actions">
         <div className="meal-choice-share">
-          <span>あなたの分</span>
-          <strong>{yen(allocation.memberAmounts[memberId] || 0)}</strong>
+          <AmountRatio amount={myAmount} total={allocation.amount} />
         </div>
         {byQuantity ? (
           <div className="meal-choice-stepper">
@@ -53,8 +54,13 @@ export default function ItemSelection({
               <Minus size={18} />
             </button>
             <span className="meal-choice-count" aria-live="polite" aria-atomic="true">
-              <span>自分の数</span>
-              <strong>{quantity}</strong>
+              <span className="sr-only">
+                食べた・飲んだ数 {quantity}、全部で {totalQuantity}
+              </span>
+              <span aria-hidden="true">
+                <strong>{quantity}</strong>
+                <span className="meal-choice-denominator"> / {totalQuantity}</span>
+              </span>
             </span>
             <button
               type="button"
@@ -79,26 +85,24 @@ export default function ItemSelection({
           </button>
         )}
       </div>
-      <div className="meal-choice-status">
-        <p>
-          {eaters.length
-            ? byQuantity
-              ? eaters
-                  .map(
-                    (member) => `${member.name} × ${getSelectionQuantity(room, member.id, item)}`,
-                  )
-                  .join('・')
-              : `${eaters.map((member) => member.name).join('・')}（${eaters.length}人で割り勘）`
-            : 'まだ選ばれていません'}
+      {byQuantity && others.length > 0 && (
+        <details className="meal-choice-others">
+          <summary>
+            ほかの人の分 {othersQuantity} / {totalQuantity}
+            <span>残り {allocation.unassignedQuantity}</span>
+          </summary>
+          <p>
+            {others
+              .map((member) => `${member.name} × ${getSelectionQuantity(room, member.id, item)}`)
+              .join('・')}
+          </p>
+        </details>
+      )}
+      {!byQuantity && eaters.length > 0 && (
+        <p className="meal-choice-shared-members">
+          {eaters.map((member) => member.name).join('・')}（{eaters.length}人）
         </p>
-        {byQuantity && (
-          <span>
-            {allocation.unassignedQuantity > 0
-              ? `残り ${allocation.unassignedQuantity}`
-              : 'すべて選択済み'}
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }

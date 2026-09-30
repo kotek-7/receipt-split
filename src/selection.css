@@ -1,5 +1,5 @@
 .meal-choice {
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-4) 0;
 }
 
 .meal-choice + .meal-choice {
@@ -15,48 +15,23 @@
   overflow-wrap: anywhere;
 }
 
-.meal-choice-total {
-  margin-top: var(--space-1);
-  color: var(--color-text-muted);
-  font-size: var(--font-small);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.8;
-}
-
-.meal-choice-total > span {
-  white-space: nowrap;
-}
-
 .meal-choice-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .meal-choice-share {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
   min-width: 0;
 }
 
-.meal-choice-share > span {
+.meal-choice-denominator {
   color: var(--color-text-muted);
   font-size: var(--font-small);
-}
-
-.meal-choice-share > strong {
-  color: var(--color-text-muted);
-  font-size: var(--font-input);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.meal-choice-selected .meal-choice-share > strong {
-  color: var(--color-action);
+  font-weight: 400;
 }
 
 .meal-choice-stepper {
@@ -81,20 +56,16 @@
 
 .meal-choice-count {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
-  padding-block: var(--space-1);
+  min-width: 56px;
+  padding: var(--space-1);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   line-height: 1.5;
 }
 
-.meal-choice-count > span {
-  color: var(--color-text-muted);
-  font-size: var(--font-caption);
-}
-
-.meal-choice-count > strong {
+.meal-choice-count strong {
   color: var(--color-text);
   font-size: var(--font-input);
   font-weight: 600;
@@ -130,29 +101,37 @@
   opacity: 1;
 }
 
-.meal-choice-status {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  margin-top: var(--space-3);
+.meal-choice-others,
+.meal-choice-shared-members {
+  margin-top: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--font-small);
   line-height: 1.7;
 }
 
-.meal-choice-status > p {
-  min-width: 0;
+.meal-choice-others > summary {
+  width: fit-content;
+  min-height: var(--control-height);
+  align-content: center;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-choice-others > summary > span {
+  margin-left: var(--space-3);
+}
+
+.meal-choice-others > summary:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-small);
+}
+
+.meal-choice-others > p,
+.meal-choice-shared-members {
   overflow-wrap: anywhere;
 }
 
-.meal-choice-status > span {
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-@media (max-width: 600px) {
-  .meal-choice {
-    padding: var(--space-5);
-  }
+.meal-choice-others[open] {
+  padding-bottom: var(--space-1);
 }
