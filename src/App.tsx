@@ -231,7 +231,7 @@ export default function App() {
                 </div>
               </div>
             </section>
-            <section className="start-card receipt-edge" id="start">
+            <section className="start-card" id="start">
               <h2>割り勘をはじめる</h2>
               <div
                 className={`upload-area ${scan !== null ? 'scanning' : ''}`}
@@ -447,17 +447,16 @@ function Editor({
       </button>
       <div className="page-heading">
         <h1>レシートを確認</h1>
-        <p>
-          料理・飲み物・食材の数量と金額を確認します。誰が飲んだ・食べたかは、リンクを送ったあとにそれぞれが選びます。
-        </p>
+        <p>数量と金額を確認して、飲み会のメンバーに送るリンクを作ります。</p>
       </div>
       <form
         onSubmit={submit}
         className={`editor-layout ${photo || draft.rawText ? 'with-preview' : ''}`}
       >
-        <section className="panel editor-panel receipt-edge">
+        <section className="editor-panel">
+          <h2 className="editor-section-title">飲み会の情報</h2>
           <div className="form-row">
-            <label>
+            <label className="event-name-field">
               飲み会の名前
               <input
                 required
@@ -478,43 +477,42 @@ function Editor({
                 onChange={(e) => setPayerName(e.target.value)}
               />
             </label>
-          </div>
-          <div className="participant-count-field">
-            <label htmlFor="participant-count">割り勘人数</label>
-            <div>
-              <input
-                id="participant-count"
-                type="number"
-                required
-                min="1"
-                max="100"
-                step="1"
-                inputMode="numeric"
-                aria-describedby="participant-count-help"
-                value={participantCount}
-                onChange={(e) => setParticipantCount(e.target.value)}
-              />
-              <span>人</span>
+            <div className="participant-count-field">
+              <label htmlFor="participant-count">割り勘人数</label>
+              <div>
+                <input
+                  id="participant-count"
+                  type="number"
+                  required
+                  min="1"
+                  max="100"
+                  step="1"
+                  inputMode="numeric"
+                  aria-describedby="participant-count-help"
+                  value={participantCount}
+                  onChange={(e) => setParticipantCount(e.target.value)}
+                />
+                <span>人</span>
+              </div>
+              <p id="participant-count-help" className="muted small">
+                あなたを含む人数
+              </p>
             </div>
-            <p id="participant-count-help" className="muted small">
-              立て替えた人（あなた）を含めた人数です。
-            </p>
           </div>
           <div className="item-editor-header">
-            <h2>
-              <ReceiptText size={19} />
-              レシートの内容
-            </h2>
-            <span>金額は1行の合計</span>
+            <h2 className="editor-section-title">レシートの内容</h2>
           </div>
-          <div className="info-box">
+          <div className="split-mode-guide">
             <p>
-              自分のドリンクなどは「各自」。料理・食材やボトルのお酒など、分け合うものは「シェア」にします。
+              <strong>各自</strong>ドリンクなど、1人ずつのもの
+            </p>
+            <p>
+              <strong>シェア</strong>料理・食材など、分け合うもの
             </p>
           </div>
           <div className="item-editor-labels">
             <span>料理・飲み物など</span>
-            <span>金額（円）</span>
+            <span>合計（円）</span>
           </div>
           <div className="editable-items">
             {items.map((item, index) => (
@@ -603,12 +601,7 @@ function Editor({
                           )
                         }
                       >
-                        <span className="split-mode-title">
-                          <span className="split-mode-check" aria-hidden="true">
-                            {getItemSplitMode(item) === mode && <Check size={12} strokeWidth={3} />}
-                          </span>
-                          {label}
-                        </span>
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -626,12 +619,12 @@ function Editor({
             料理・飲み物を追加
           </button>
           <div className="receipt-subtotal">
-            <span>入力した金額の合計</span>
+            <span>明細の合計</span>
             <strong>{yen(subtotal)}</strong>
           </div>
           <div className="total-input">
             <label htmlFor="receipt-total">
-              実際に払った総額<span>レシートの合計金額を入力</span>
+              支払った総額<span>税・値引きも含む金額</span>
             </label>
             <div>
               <span>¥</span>
@@ -662,9 +655,7 @@ function Editor({
             {busy ? <Spinner /> : <Link size={18} />}共有リンクを作る
             <ArrowRight size={17} />
           </button>
-          <p className="under-button">
-            リンクを作ったら、あなたも飲んだもの・食べたものを選びます。
-          </p>
+          <p className="under-button">作成後、メンバーに共有 → それぞれが自分の分を選択</p>
         </section>
         {(photo || draft.rawText) && (
           <aside className="editor-aside">
@@ -947,7 +938,7 @@ function RoomPage({
       )}
       {member && tab === 'items' ? (
         <div className="room-grid">
-          <section className="panel item-selection receipt-edge">
+          <section className="item-selection">
             <div className="selection-heading">
               <div>
                 <h2>{room.closed ? 'あなたが選んだもの' : '飲んだ・食べたものを選ぶ'}</h2>
@@ -984,7 +975,7 @@ function RoomPage({
               <p>立て替えた人も、飲んだもの・食べたものを選びます。</p>
             </div>
           </section>
-          <aside className="amount-card receipt-edge">
+          <aside className="amount-card">
             <h2>{isOwner ? 'あなたの分' : `${payer.name}さんに返す金額`}</h2>
             <div className="large-amount">{yen(myAmount)}</div>
             <span className="amount-status">
@@ -1037,7 +1028,7 @@ function RoomPage({
           </aside>
         </div>
       ) : (
-        <section className="panel settlement-panel receipt-edge">
+        <section className="panel settlement-panel">
           <div className="selection-heading">
             <div>
               <h2>{room.closed ? '返す相手と金額' : 'みんなの金額（仮）'}</h2>

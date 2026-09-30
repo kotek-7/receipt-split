@@ -588,24 +588,6 @@ input::-webkit-outer-spin-button {
   border-radius: var(--radius-panel);
   overflow: hidden;
 }
-.panel.receipt-edge,
-.amount-card.receipt-edge {
-  overflow: visible;
-  border-bottom-left-radius: var(--radius-small);
-  border-bottom-right-radius: var(--radius-small);
-}
-.item-selection.receipt-edge > :last-child {
-  border-radius: 0 0 var(--radius-small) var(--radius-small);
-}
-.editor-panel {
-  padding: var(--space-7);
-}
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-  margin-bottom: var(--space-8);
-}
 label {
   font-size: var(--font-small);
   font-weight: 500;
@@ -615,18 +597,66 @@ label > input {
   margin-top: var(--space-2);
   font-size: var(--font-body);
 }
-.participant-count-field {
-  margin-bottom: var(--space-6);
+.editor-panel {
+  padding: var(--space-3) 0;
+  min-width: 0;
 }
-.participant-count-field > div {
+.editor-section-title {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  font-size: var(--font-section);
+  margin-bottom: var(--space-5);
+}
+.editor-section-title::before {
+  content: '';
+  width: 5px;
+  height: 18px;
+  flex-shrink: 0;
+  background: var(--color-action);
+  border-radius: 1px;
+  transform: skew(-12deg);
+}
+.editor-panel input {
+  border: 0;
+  border-bottom: 1px solid var(--color-control-border);
+  border-radius: 0;
+  background: transparent;
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--font-input);
+  min-height: var(--control-height);
+}
+.editor-panel input:focus {
+  border-color: var(--color-action);
+  box-shadow: 0 2px 0 var(--color-action);
+  background: var(--color-surface-subtle);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: var(--space-6) var(--space-8);
+  margin-bottom: var(--space-12);
+}
+.form-row label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+}
+.event-name-field {
+  grid-column: 1 / -1;
+}
+.event-name-field input {
+  font-size: var(--font-card-title);
+  font-weight: 600;
+}
+.participant-count-field > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   margin-top: var(--space-2);
 }
 .participant-count-field input {
-  width: 100px;
-  font-size: var(--font-input);
+  width: 72px;
+  text-align: center;
 }
 .participant-count-field p {
   margin: var(--space-2) 0 0;
@@ -635,61 +665,55 @@ label > input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-6);
 }
-.item-editor-header h2 {
-  font-size: var(--font-subheading);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.item-editor-header > span {
-  font-size: var(--font-caption);
+.split-mode-guide {
+  font-size: var(--font-small);
   color: var(--color-text-muted);
+  line-height: 1.9;
+  margin-bottom: var(--space-6);
 }
-.item-editor-header + .info-box {
-  margin-top: var(--space-3);
+.split-mode-guide strong {
+  display: inline-block;
+  color: var(--color-text);
+  width: 4.5em;
+  font-weight: 600;
+}
+.item-editor-labels,
+.editable-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 44px;
+  gap: var(--space-2);
+  align-items: center;
 }
 .item-editor-labels {
-  display: grid;
-  grid-template-columns: 1fr 115px 30px;
-  gap: var(--space-2);
-  font-size: var(--font-caption);
+  font-size: var(--font-small);
   color: var(--color-text-muted);
-  margin: var(--space-5) 0 var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+  border-bottom: 2px solid var(--color-text);
 }
 .item-editor-labels > span:last-child {
   text-align: right;
 }
-.editable-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
 .editable-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 115px 30px;
-  gap: var(--space-2);
-  align-items: center;
-}
-.editable-item input {
-  font-size: var(--font-body);
-  padding: var(--space-3) var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+  row-gap: var(--space-3);
 }
 .editable-item input[type='number'] {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.editable-item > input:first-child {
+  font-weight: 500;
+}
 .item-split-options {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-4);
-  padding: 0 0 var(--space-3);
-  color: var(--color-text-muted);
+  justify-content: space-between;
+  gap: var(--space-3);
   font-size: var(--font-small);
+  color: var(--color-text-muted);
 }
 .item-split-options label {
   display: flex;
@@ -697,51 +721,37 @@ label > input {
   gap: var(--space-2);
 }
 .item-split-options input {
-  width: 64px;
+  width: 56px;
   margin: 0;
-  padding: var(--space-2) var(--space-2);
+  padding: var(--space-2);
 }
 .split-mode-choices {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-  flex: 1 1 260px;
+  display: flex;
+  padding: 3px;
+  background: var(--color-soft);
+  border-radius: var(--radius-small);
 }
 .split-mode-choice {
-  min-width: 0;
-  min-height: 44px;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  text-align: left;
+  min-width: 72px;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-small);
+  font-weight: 600;
 }
 .split-mode-choice[aria-pressed='true'] {
-  border-color: var(--color-action);
-  background: var(--color-soft);
-  color: var(--color-action);
+  background: var(--color-text);
+  color: var(--color-on-dark);
 }
 .split-mode-choice:focus-visible {
   outline: 2px solid var(--color-action);
   outline-offset: 3px;
 }
-.split-mode-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-small);
-  font-weight: 600;
-  line-height: 1.6;
-}
-.split-mode-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 16px;
-  height: 16px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
+.editor-panel .delete-button {
+  width: 44px;
+  height: 44px;
 }
 .icon-button {
   display: inline-flex;
@@ -769,8 +779,7 @@ label > input {
   justify-content: space-between;
   font-size: var(--font-small);
   color: var(--color-text-muted);
-  border-top: 1px dashed var(--color-border);
-  margin-top: var(--space-5);
+  margin-top: var(--space-8);
   padding-top: var(--space-5);
 }
 .receipt-subtotal > strong {
@@ -782,9 +791,8 @@ label > input {
   justify-content: space-between;
   gap: var(--space-5);
   margin: var(--space-5) 0 var(--space-6);
-  background: var(--color-soft);
-  border-radius: var(--radius-control);
-  padding: var(--space-5);
+  border-top: 2px solid var(--color-text);
+  padding-top: var(--space-6);
 }
 .total-input label {
   font-size: var(--font-body);
@@ -866,7 +874,11 @@ label > input {
   overflow: auto;
 }
 .edit-page {
+  max-width: 792px;
   padding-bottom: var(--space-9);
+}
+.edit-page:has(.editor-aside) {
+  max-width: 1088px;
 }
 .room-page {
   padding-top: var(--space-7);
@@ -1791,17 +1803,17 @@ button.selectable-item:not(:disabled):hover {
     font-size: var(--font-title-small);
   }
   .editor-panel {
-    padding: var(--space-5);
+    padding: var(--space-2) 0;
   }
   .form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) 100px;
     gap: var(--space-5);
   }
   .form-row input {
     font-size: var(--font-input);
   }
   .editable-item {
-    grid-template-columns: minmax(0, 1fr) 83px 28px;
+    grid-template-columns: minmax(0, 1fr) 84px 44px;
     gap: var(--space-2);
   }
   .editable-item input {
@@ -1809,7 +1821,7 @@ button.selectable-item:not(:disabled):hover {
     padding: var(--space-3) var(--space-2);
   }
   .item-editor-labels {
-    grid-template-columns: 1fr 83px 28px;
+    grid-template-columns: minmax(0, 1fr) 84px 44px;
     gap: var(--space-2);
   }
   .item-editor-header h2 {
@@ -1819,7 +1831,7 @@ button.selectable-item:not(:disabled):hover {
     font-size: var(--font-caption);
   }
   .total-input {
-    padding: var(--space-4) var(--space-3);
+    padding: var(--space-5) 0 0;
     gap: var(--space-3);
   }
   .total-input label {

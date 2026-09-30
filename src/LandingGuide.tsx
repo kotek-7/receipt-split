@@ -70,7 +70,7 @@ export default function LandingGuide() {
               各自
             </h3>
             <p>自分のドリンクなどは、飲んだ数・食べた数で。</p>
-            <div className="split-example-receipt receipt-edge">
+            <div className="split-example-receipt">
               <div className="split-example-item">
                 <span>生ビール 3杯</span>
                 <strong>¥1,800</strong>
@@ -94,7 +94,7 @@ export default function LandingGuide() {
               シェア
             </h3>
             <p>料理・食材・ボトルのお酒などは、一緒に飲食した人だけで均等に。</p>
-            <div className="split-example-receipt receipt-edge">
+            <div className="split-example-receipt">
               <div className="split-example-item">
                 <span>鍋の食材</span>
                 <strong>¥2,400</strong>
