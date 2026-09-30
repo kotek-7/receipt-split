@@ -28,6 +28,7 @@ import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession 
 import CameraCapture from './CameraCapture';
 import ItemSelection from './ItemSelection';
 import LandingGuide from './LandingGuide';
+import BrandMark from './BrandMark';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
@@ -56,7 +57,7 @@ function Brand() {
   return (
     <a href="/" className="brand" aria-label="レシわけ ホーム">
       <span className="brand-icon">
-        <ReceiptText size={22} aria-hidden="true" />
+        <BrandMark />
       </span>
       レシわけ<span className="brand-dot">.</span>
     </a>
@@ -195,7 +196,10 @@ export default function App() {
                 食事や買い出しの代金を、買った個数やシェアした人に合わせて分けられます。
               </p>
               <p className="home-availability">会員登録・アプリのインストールは不要です。</p>
-              <div className="mini-receipt" aria-label="品目を選ぶだけで割り勘できるイメージ">
+              <div
+                className="mini-receipt receipt-edge"
+                aria-label="品目を選ぶだけで割り勘できるイメージ"
+              >
                 <div className="mini-receipt-title">
                   <ReceiptText size={16} />
                   レシート
@@ -207,7 +211,7 @@ export default function App() {
                   <span>マルゲリータ</span>
                   <strong>¥1,600</strong>
                   <span className="mini-avatar">あ</span>
-                  <span className="mini-avatar pink">ゆ</span>
+                  <span className="mini-avatar alternate">ゆ</span>
                 </div>
                 <div className="mini-item">
                   <span className="mini-check">
@@ -223,7 +227,7 @@ export default function App() {
                 </div>
               </div>
             </section>
-            <section className="start-card" id="start">
+            <section className="start-card receipt-edge" id="start">
               <h2>精算をはじめる</h2>
               <div
                 className={`upload-area ${scan !== null ? 'scanning' : ''}`}

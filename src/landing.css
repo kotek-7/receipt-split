@@ -68,6 +68,9 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+.split-example-item strong {
+  font-family: var(--font-receipt);
+}
 .split-example-receipt > p {
   margin-top: var(--space-3);
   color: var(--color-text-muted);
@@ -92,6 +95,7 @@
   font-weight: 600;
   color: var(--color-action);
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-receipt);
 }
 .landing-steps {
   display: grid;
@@ -112,8 +116,11 @@
   place-items: center;
   width: var(--space-8);
   height: var(--space-8);
-  border-radius: var(--radius-pill);
-  background: var(--color-soft);
+  border: 1px solid var(--color-action);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  font-family: var(--font-receipt);
+  transform: rotate(-4deg);
   font-size: var(--font-control);
   font-weight: 600;
 }

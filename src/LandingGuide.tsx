@@ -65,7 +65,7 @@ export default function LandingGuide() {
               各自のもの
             </h3>
             <p>それぞれが買った個数に応じて負担します。</p>
-            <div className="split-example-receipt">
+            <div className="split-example-receipt receipt-edge">
               <div className="split-example-item">
                 <span>コーヒー 2杯</span>
                 <strong>¥1,000</strong>
@@ -89,7 +89,7 @@ export default function LandingGuide() {
               シェアするもの
             </h3>
             <p>その品目を選んだ人だけで均等に分けます。</p>
-            <div className="split-example-receipt">
+            <div className="split-example-receipt receipt-edge">
               <div className="split-example-item">
                 <span>ピザ 1枚</span>
                 <strong>¥1,600</strong>

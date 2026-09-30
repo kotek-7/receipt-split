@@ -63,7 +63,7 @@ select,
 textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-control);
   background: var(--color-surface);
   padding: var(--space-3) var(--space-4);
@@ -182,7 +182,7 @@ input::-webkit-outer-spin-button {
 }
 .button.secondary {
   background: var(--color-surface);
-  border-color: var(--color-border);
+  border-color: var(--color-control-border);
   color: var(--color-text-secondary);
 }
 .button.secondary:not(:disabled):hover {
@@ -221,6 +221,20 @@ input::-webkit-outer-spin-button {
 }
 .hero h1 > span {
   color: var(--color-action);
+  display: inline-block;
+  position: relative;
+}
+.hero h1 > span::after {
+  content: '';
+  position: absolute;
+  right: var(--space-4);
+  bottom: 0;
+  left: 0;
+  height: var(--space-2);
+  border-bottom: 3px solid var(--color-action);
+  border-radius: 50%;
+  transform: rotate(-1deg);
+  pointer-events: none;
 }
 .mini-receipt {
   max-width: 351px;
@@ -233,7 +247,10 @@ input::-webkit-outer-spin-button {
   box-shadow: var(--shadow-receipt);
   position: relative;
 }
-.mini-receipt::after {
+.receipt-edge {
+  position: relative;
+}
+.receipt-edge::after {
   content: '';
   position: absolute;
   bottom: -5px;
@@ -244,6 +261,8 @@ input::-webkit-outer-spin-button {
     linear-gradient(135deg, var(--color-surface) 25%, transparent 25%) -5px 0,
     linear-gradient(225deg, var(--color-surface) 25%, transparent 25%) -5px 0;
   background-size: 10px 10px;
+  filter: drop-shadow(0 1px 0 var(--color-border));
+  pointer-events: none;
 }
 .mini-receipt-title {
   display: flex;
@@ -267,6 +286,7 @@ input::-webkit-outer-spin-button {
   margin-left: auto;
   font-size: var(--font-small);
   font-weight: 500;
+  font-family: var(--font-receipt);
 }
 .mini-check {
   display: flex;
@@ -286,13 +306,13 @@ input::-webkit-outer-spin-button {
   height: 21px;
   border-radius: 50%;
   background: var(--color-avatar);
-  color: var(--color-illustration);
+  color: var(--color-avatar-text);
   font-size: var(--font-caption);
   margin-left: 0;
 }
-.mini-avatar.pink {
-  background: var(--color-avatar-peach);
-  color: var(--color-avatar-peach-text);
+.mini-avatar.alternate {
+  background: var(--color-avatar-1);
+  color: var(--color-avatar-1-text);
   margin-left: calc(-1 * var(--space-3));
   border: 2px solid var(--color-surface);
 }
@@ -309,6 +329,7 @@ input::-webkit-outer-spin-button {
   font-size: var(--font-card-title);
   font-weight: 600;
   color: var(--color-action);
+  font-family: var(--font-receipt);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -316,7 +337,7 @@ input::-webkit-outer-spin-button {
 .start-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-card) var(--radius-card) var(--radius-small) var(--radius-small);
   box-shadow: var(--shadow-card);
   padding: var(--space-7) var(--space-7) var(--space-5);
   position: relative;
@@ -930,20 +951,20 @@ label > input {
   color: var(--color-avatar-text);
 }
 .avatar-1 {
-  background: var(--color-avatar-peach);
-  color: var(--color-avatar-peach-text);
+  background: var(--color-avatar-1);
+  color: var(--color-avatar-1-text);
 }
 .avatar-2 {
-  background: var(--color-avatar-blue);
-  color: var(--color-avatar-blue-text);
+  background: var(--color-avatar-2);
+  color: var(--color-avatar-2-text);
 }
 .avatar-3 {
-  background: var(--color-avatar-lilac);
-  color: var(--color-avatar-lilac-text);
+  background: var(--color-avatar-3);
+  color: var(--color-avatar-3-text);
 }
 .avatar-4 {
-  background: var(--color-avatar-yellow);
-  color: var(--color-avatar-yellow-text);
+  background: var(--color-avatar-4);
+  color: var(--color-avatar-4-text);
 }
 .member-progress {
   display: flex;
