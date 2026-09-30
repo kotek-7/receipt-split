@@ -562,6 +562,12 @@ input::-webkit-outer-spin-button {
   font-size: var(--font-page-title);
   letter-spacing: -1px;
 }
+.page-heading p {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-body);
+  line-height: 1.9;
+}
 .editor-layout {
   display: grid;
   gap: var(--space-8);
@@ -629,6 +635,9 @@ label > input {
 .item-editor-header > span {
   font-size: var(--font-caption);
   color: var(--color-text-muted);
+}
+.item-editor-header + .info-box {
+  margin-top: var(--space-3);
 }
 .item-editor-labels {
   display: grid;

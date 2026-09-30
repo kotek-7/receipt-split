@@ -443,6 +443,9 @@ function Editor({
       </button>
       <div className="page-heading">
         <h1>品目を確認</h1>
+        <p>
+          一緒に払った品目をすべて入力・確認します。誰の分かは、リンクを共有したあとに選びます。
+        </p>
       </div>
       <form
         onSubmit={submit}
@@ -499,6 +502,11 @@ function Editor({
               レシートの品目
             </h2>
             <span>金額は1行の合計</span>
+          </div>
+          <div className="info-box">
+            <p>
+              飲み物など、自分の個数分を負担する品目は「各自のもの」。ピザなど、選んだ人で均等に分ける品目は「シェアするもの」。
+            </p>
           </div>
           <div className="item-editor-labels">
             <span>品目名</span>
@@ -651,6 +659,7 @@ function Editor({
             {busy ? <Spinner /> : <Link size={18} />}共有リンクを作る
             <ArrowRight size={17} />
           </button>
+          <p className="under-button">リンク作成後、あなたの品目も選びます。</p>
         </section>
         {(photo || draft.rawText) && (
           <aside className="editor-aside">
@@ -873,7 +882,7 @@ function RoomPage({
               ? '参加者ごとの支払額は以下で確認できます。'
               : isFull
                 ? '参加済みの方は、参加したときのブラウザから開いてください。'
-                : '名前を入力して参加してください。'}
+                : '名前を入力して参加し、自分が食べた・買った品目を選んでください。'}
           </p>
           {!room.closed && !isFull && (
             <form onSubmit={join}>
@@ -937,7 +946,11 @@ function RoomPage({
             <div className="selection-heading">
               <div>
                 <h2>{room.closed ? 'あなたが選んだ品目' : '自分の品目・個数を選ぶ'}</h2>
-                <p>個別の商品は自分の個数を。割り勘する品目は、負担する人全員で選びます。</p>
+                <p>
+                  {room.closed
+                    ? '選び直す場合は、立て替えた人が「みんなの精算」から選択を再開します。'
+                    : '個別の商品は自分の個数を。割り勘する品目は、負担する人全員で選びます。'}
+                </p>
               </div>
               <span>
                 {selected.length} / {room.items.length}
@@ -1009,6 +1022,7 @@ function RoomPage({
                       ? 'これで入力完了'
                       : '負担する品目なしで完了'}
                 </button>
+                <p className="under-button">確定前なら、入力完了後も選び直せます。</p>
               </>
             )}
             <button className="text-button summary-link" onClick={() => setTab('summary')}>
@@ -1328,6 +1342,11 @@ function ShareModal({ room, onClose }: { room: Room; onClose: () => void }) {
   const [error, setError] = useState('');
   return (
     <Modal title="リンクを共有" onClose={onClose}>
+      <p className="modal-description">
+        {room.closed
+          ? '参加者にリンクを送って、返す相手と金額を共有できます。'
+          : '参加者にリンクを送ってください。名前を入力すると、自分の品目・個数を選べます。'}
+      </p>
       <div className="qr-code">
         <QRCodeSVG value={url} size={164} fgColor="currentColor" marginSize={1} />
       </div>
