@@ -32,7 +32,12 @@ import ItemSelection from './ItemSelection';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
-const newItem = (name = '', amount = 0): ReceiptItem => ({ id: createItemId(), name, amount });
+const newItem = (name = '', amount = 0): ReceiptItem => ({
+  id: createItemId(),
+  name,
+  amount,
+  splitMode: 'quantity',
+});
 const demo = (): ParsedReceipt => ({
   title: '週末のごはん',
   total: 4200,
@@ -458,7 +463,9 @@ function Editor({
   const [title, setTitle] = useState(draft.title);
   const [payerName, setPayerName] = useState('');
   const [participantCount, setParticipantCount] = useState('2');
-  const [items, setItems] = useState(draft.items);
+  const [items, setItems] = useState<ReceiptItem[]>(() =>
+    draft.items.map((item) => ({ ...item, splitMode: item.splitMode ?? 'quantity' })),
+  );
   const [total, setTotal] = useState(draft.total);
   const [totalEdited, setTotalEdited] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -621,17 +628,7 @@ function Editor({
                       value={(item.quantity ?? 1) || ''}
                       onChange={(e) => {
                         const quantity = Number(e.target.value);
-                        updateItems(
-                          items.map((i) =>
-                            i.id === item.id
-                              ? {
-                                  ...i,
-                                  quantity,
-                                  splitMode: i.splitMode ?? (quantity > 1 ? 'quantity' : undefined),
-                                }
-                              : i,
-                          ),
-                        );
+                        updateItems(items.map((i) => (i.id === item.id ? { ...i, quantity } : i)));
                       }}
                     />
                     個

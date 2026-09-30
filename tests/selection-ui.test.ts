@@ -180,6 +180,7 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
 test('editor submits purchased counts and chosen split modes without multiplying row totals', async (t) => {
   const app = await mountApp(t);
   await app.click('手入力ではじめる');
+  assert.equal(app.button('品目1：各自のもの').getAttribute('aria-pressed'), 'true');
   await app.input('input[placeholder="例：週末のごはん"]', '夕食');
   await app.input('input[placeholder="例：あおい"]', 'あき');
   const participantCount = await app.input('#participant-count', '');
@@ -194,6 +195,7 @@ test('editor submits purchased counts and chosen split modes without multiplying
   await app.input('input[aria-label="品目1の購入数"]', '2');
   assert.equal(app.button('品目1：各自のもの').getAttribute('aria-pressed'), 'true');
   await app.click('品目を追加');
+  assert.equal(app.button('品目2：各自のもの').getAttribute('aria-pressed'), 'true');
   await app.input('input[aria-label="品目2の名前"]', 'ピザ');
   await app.input('input[aria-label="品目2の金額"]', '900');
   await app.input('input[aria-label="品目2の購入数"]', '2');
@@ -300,6 +302,7 @@ test('summary exposes the remaining units and their unpaid amount before allowin
 test('creation requires an integer participant count within the supported range', async (t) => {
   const app = await mountApp(t);
   await app.click('サンプルで試す');
+  assert.equal(app.button('品目1：各自のもの').getAttribute('aria-pressed'), 'true');
   await app.input('input[placeholder="例：あおい"]', 'あき');
   for (const value of ['', '0', '1.5', '101']) {
     const input = await app.input('#participant-count', value);
