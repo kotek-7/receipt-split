@@ -1,18 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import {
-  Beer,
-  Check,
-  ChevronDown,
-  GlassWater,
-  LoaderCircle,
-  Plus,
-  UserRound,
-  Utensils,
-  Wine,
-} from 'lucide-react';
+import { Check, ChevronDown, LoaderCircle, Plus, UserRound } from 'lucide-react';
 import type { ItemAllocation, ReceiptItem, Room } from '../shared/types';
 import { getItemQuantity, getItemSplitMode, getSelectionQuantity } from '../shared/settlement';
 import AmountRatio from './AmountRatio';
+import MealIcon from './MealIcon';
 import './selection.css';
 
 const TILE_PAGE_SIZE = 12;
@@ -30,19 +21,6 @@ function reconcileSlots(slots: number[], count: number, total: number) {
   return next.length === slots.length && next.every((slot, index) => slot === slots[index])
     ? slots
     : next;
-}
-
-function itemIcon(name: string) {
-  if (/ビール|ビア|発泡酒|生中|生大|生小|beer/i.test(name)) return Beer;
-  if (/ワイン|シャンパン|スパークリング|wine/i.test(name)) return Wine;
-  if (
-    /ハイボール|サワー|チューハイ|焼酎|日本酒|ウイスキー|カクテル|梅酒|ジュース|コーラ|ソーダ|茶$|コーヒー|炭酸水|ウォーター|^お?水$|ドリンク/i.test(
-      name,
-    )
-  ) {
-    return GlassWater;
-  }
-  return Utensils;
 }
 
 export default function ItemSelection({
@@ -93,7 +71,6 @@ export default function ItemSelection({
   const maximumQuantity = totalQuantity - othersQuantity;
   const numericInvalid =
     totalQuantity > TILE_PAGE_SIZE && draftQuantity(numericCount, maximumQuantity) === null;
-  const ItemIcon = itemIcon(item.name);
   const disabled = busy || pending || room.closed;
   const tileDisabled = (busy && !pending) || room.closed;
   const displayedQuantity = pending ? selectedSlots.length : quantity;
@@ -233,7 +210,7 @@ export default function ItemSelection({
                   void saveSlots(next);
                 }}
               >
-                <ItemIcon size={26} strokeWidth={1.7} aria-hidden="true" />
+                <MealIcon name={item.name} />
                 {selected.has(slot) && (
                   <span className="meal-unit-mark is-selected" aria-hidden="true">
                     <Check size={12} strokeWidth={3} />

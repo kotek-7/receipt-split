@@ -5,6 +5,7 @@ import {
   Camera,
   Check,
   CheckCheck,
+  ChevronDown,
   ChevronRight,
   CircleHelp,
   Copy,
@@ -28,6 +29,7 @@ import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession 
 import CameraCapture from './CameraCapture';
 import ItemSelection from './ItemSelection';
 import AmountRatio from './AmountRatio';
+import QuantityTiles from './QuantityTiles';
 import LandingGuide from './LandingGuide';
 import BrandMark from './BrandMark';
 
@@ -517,23 +519,15 @@ function Editor({
                     }
                   />
                 </label>
-                <label className="inline-field item-quantity-field">
-                  数量
-                  <input
-                    aria-label={`${index + 1}行目の数量`}
-                    type="number"
-                    required
-                    min="1"
-                    max="999"
-                    step="1"
-                    inputMode="numeric"
-                    value={(item.quantity ?? 1) || ''}
-                    onChange={(e) => {
-                      const quantity = Number(e.target.value);
-                      updateItems(items.map((i) => (i.id === item.id ? { ...i, quantity } : i)));
-                    }}
-                  />
-                </label>
+                <QuantityTiles
+                  name={item.name}
+                  quantity={item.quantity ?? 1}
+                  inputLabel={`${index + 1}行目の数量`}
+                  disabled={busy}
+                  onChange={(quantity) =>
+                    updateItems(items.map((i) => (i.id === item.id ? { ...i, quantity } : i)))
+                  }
+                />
                 <label className="inline-field item-amount-field">
                   合計
                   <span className="input-with-unit">
@@ -923,11 +917,11 @@ function RoomPage({
           </h2>
           <p>
             {room.closed
-              ? 'それぞれが返す金額は、下の一覧で確認できます。'
+              ? '参加したときのブラウザから、自分の金額を確認してください。'
               : isFull
                 ? '参加済みの方は、参加したときのブラウザから開いてください。'
                 : fixedAmounts
-                  ? '名前を入力すると、自分の金額を確認できます。'
+                  ? '名前を入れて、食べた・飲んだ分を選びます。'
                   : '名前を入力して、飲んだもの・食べたものを選んでください。'}
           </p>
           {!room.closed && !isFull && (
@@ -963,32 +957,22 @@ function RoomPage({
       ) : (
         <>
           <div className="member-strip">
-            <div>
-              <Avatar name={member.name} index={room.members.indexOf(member)} />
-              <span>
-                <strong>{member.name}</strong>として参加中{isOwner && <small>立て替えた人</small>}
-              </span>
-            </div>
-            <span className="member-progress">
-              <Users size={15} />
-              {doneCount} / {participantCount}人が入力完了
+            <Avatar name={member.name} index={room.members.indexOf(member)} />
+            <span>
+              <strong>{member.name}</strong>さんの分
             </span>
-          </div>
-          <div className="tabs" role="tablist" aria-label="割り勘の表示">
-            <button role="tab" aria-selected={tab === 'items'} onClick={() => setTab('items')}>
-              <ReceiptText size={17} />
-              自分の分{!fixedAmounts && <span>{selected.length}</span>}
-            </button>
-            <button role="tab" aria-selected={tab === 'summary'} onClick={() => setTab('summary')}>
-              <Users size={17} />
-              みんなの金額
-            </button>
           </div>
         </>
       )}
       {member && tab === 'items' ? (
         <div className="room-grid">
           <section className="item-selection">
+            {room.closed && (
+              <button className="text-button receipt-back" onClick={() => setTab('summary')}>
+                <ArrowLeft size={16} />
+                金額に戻る
+              </button>
+            )}
             <div className="selection-heading">
               <div>
                 <h2 ref={contentHeading} tabIndex={-1} className="room-content-heading">
@@ -1001,7 +985,6 @@ function RoomPage({
                       : '自分の分を選んでください'}
                 </h2>
               </div>
-              <span className="ratio-caption">負担 / 全体</span>
             </div>
             {selectionGroups.map((group) => {
               if (fixedAmounts && group.mode === 'equal') return null;
@@ -1109,7 +1092,7 @@ function RoomPage({
               <div className="completed-note">
                 <CheckCheck size={19} />
                 {isOwner
-                  ? 'みんなの金額で受け取り状況を確認'
+                  ? '受け取り状況は下で確認できます'
                   : room.paidMemberIds.includes(member.id)
                     ? '受け取りを確認済みです'
                     : '表示金額を立て替えた人に返してください'}
@@ -1126,23 +1109,19 @@ function RoomPage({
                 </button>
               </>
             )}
-            <button className="text-button summary-link" onClick={() => setTab('summary')}>
-              みんなの金額を見る
-              <ArrowRight size={15} />
-            </button>
           </aside>
         </div>
-      ) : (
-        <section className="panel settlement-panel">
-          {member && !room.closed && (
-            <div className={`selection-result ${member.done ? 'is-done' : ''}`}>
+      ) : member ? (
+        <section className="personal-summary">
+          {member && (
+            <div className={`selection-result ${member.done || room.closed ? 'is-done' : ''}`}>
               <div>
-                {member.done && <CheckCheck size={22} aria-hidden="true" />}
+                {(member.done || room.closed) && <CheckCheck size={22} aria-hidden="true" />}
                 <h2 ref={contentHeading} tabIndex={-1} className="room-content-heading">
-                  {member.done
+                  {member.done || room.closed
                     ? fixedAmounts
                       ? isOwner
-                        ? 'あなたの負担'
+                        ? 'あなたの分'
                         : `${payer.name}さんに返す金額`
                       : 'あなたの入力は完了です'
                     : fixedAmounts
@@ -1152,10 +1131,13 @@ function RoomPage({
                       : '自分の分を選んでください'}
                 </h2>
               </div>
-              {member.done && fixedAmounts && (
-                <div className="personal-final-amount">{yen(myAmount)}</div>
+              {(member.done || room.closed) && (
+                <div className="personal-final-amount">
+                  {yen(myAmount)}
+                  {!fixedAmounts && !room.closed && <small>（仮）</small>}
+                </div>
               )}
-              {!fixedAmounts && (
+              {!fixedAmounts && !room.closed && (
                 <p>
                   {!member.done
                     ? '飲んだもの・食べたものを選び、選択を終えてください。'
@@ -1168,187 +1150,189 @@ function RoomPage({
                           : `${payer.name}さんが金額を確定するのを待っています。`}
                 </p>
               )}
+              {room.closed && !isOwner && (
+                <p className="personal-payment-state">
+                  {room.paidMemberIds.includes(member.id)
+                    ? '受け取り済み'
+                    : `${payer.name}さんへ返してください`}
+                </p>
+              )}
               <button
-                className={member.done ? 'text-button' : 'button primary'}
+                className={member.done || room.closed ? 'text-button' : 'button primary'}
                 onClick={() => setTab('items')}
               >
                 {member.done ? <ArrowLeft size={15} /> : null}
-                {fixedAmounts
-                  ? member.done
-                    ? hasIndividualItems
-                      ? '選び直す'
-                      : '明細を見る'
-                    : hasIndividualItems
-                      ? '食べた・飲んだ分を選ぶ'
-                      : '金額を確認する'
-                  : member.done
-                    ? '自分の分を選び直す'
-                    : '自分の分を選ぶ'}
+                {room.closed
+                  ? '明細を見る'
+                  : fixedAmounts
+                    ? member.done
+                      ? hasIndividualItems
+                        ? '選び直す'
+                        : '明細を見る'
+                      : hasIndividualItems
+                        ? '食べた・飲んだ分を選ぶ'
+                        : '金額を確認する'
+                    : member.done
+                      ? '自分の分を選び直す'
+                      : '自分の分を選ぶ'}
               </button>
             </div>
           )}
-          <div className="selection-heading">
-            <div>
-              <h2
-                ref={room.closed || !member ? contentHeading : undefined}
-                tabIndex={-1}
-                className="room-content-heading"
-              >
-                {room.closed
-                  ? '返す相手と金額'
-                  : fixedAmounts
-                    ? 'みんなの金額'
-                    : 'みんなの金額（仮）'}
-              </h2>
-              {(room.closed || !fixedAmounts) && (
+        </section>
+      ) : null}
+      {isOwner && (
+        <details className="owner-management" open={room.closed || tab === 'summary'}>
+          <summary>
+            <Users size={18} aria-hidden="true" />
+            <strong>{room.closed ? '受け取り状況' : '参加状況'}</strong>
+            <span>
+              {room.closed
+                ? `${room.paidMemberIds.length} / ${Math.max(0, room.members.length - 1)}人`
+                : `${doneCount} / ${participantCount}人が入力完了`}
+            </span>
+            <ChevronDown size={18} className="disclosure-arrow" aria-hidden="true" />
+          </summary>
+          <section className="settlement-panel">
+            <div className="settlement-list">
+              {room.members.map((m, i) => (
+                <div className="settlement-person" key={m.id}>
+                  <Avatar name={m.name} index={i} />
+                  <div className="settlement-person-name">
+                    <strong>
+                      {m.name}
+                      {m.id === member?.id && <small>あなた</small>}
+                    </strong>
+                    <span>
+                      {m.id === payer.id ? '立て替えた人 · 自分の分' : `${payer.name}さんに返す`}
+                    </span>
+                  </div>
+                  <div className="settlement-person-amount">
+                    <strong>{yen(settlement.memberAmounts[m.id] || 0)}</strong>
+                    <span>
+                      {room.closed
+                        ? m.id === payer.id
+                          ? ''
+                          : room.paidMemberIds.includes(m.id)
+                            ? '受け取り済み'
+                            : '受け取り待ち'
+                        : m.done
+                          ? fixedAmounts
+                            ? '金額確定'
+                            : '入力完了'
+                          : '入力中'}
+                    </span>
+                  </div>
+                  {!room.closed && isOwner && m.id !== payer.id && (
+                    <button
+                      className="icon-button"
+                      aria-label={`${m.name}さんを参加者から削除`}
+                      disabled={busy}
+                      onClick={() => setRemoving(m.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  {room.closed && isOwner && m.id !== payer.id && (
+                    <button
+                      className={`paid-button ${room.paidMemberIds.includes(m.id) ? 'is-paid' : ''}`}
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(
+                          '/paid',
+                          { memberId: m.id, paid: !room.paidMemberIds.includes(m.id) },
+                          'PUT',
+                        )
+                      }
+                    >
+                      {room.paidMemberIds.includes(m.id) ? (
+                        <CheckCheck size={16} />
+                      ) : (
+                        <Check size={16} />
+                      )}
+                      {room.paidMemberIds.includes(m.id) ? '受け取り済み' : '受け取った'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {fixedAmounts && settlement.pendingParticipantAmount > 0 && (
+              <p className="pending-participant-amount">
+                まだ参加していない{missingParticipants}人の分{' '}
+                <strong>{yen(settlement.pendingParticipantAmount)}</strong>
+              </p>
+            )}
+            {settlement.unassignedCount > 0 && (
+              <div className="unassigned">
+                <div>
+                  <span className="small-dot" />
+                  <strong>まだ選ばれていないものが{settlement.unassignedCount}件</strong>
+                  <span>
+                    {yen(settlement.unassignedAmount - settlement.pendingParticipantAmount)}
+                  </span>
+                </div>
                 <p>
-                  {room.closed
-                    ? 'お金を受け取ったら、立て替えた人が「受け取った」を押します。'
-                    : '全員の選択が終わると、立て替えた人が確定できます。'}
+                  {room.items
+                    .filter((_, index) => settlement.itemAllocations[index].unassignedQuantity > 0)
+                    .map((item) => {
+                      const allocation = settlement.itemAllocations.find(
+                        (a) => a.itemId === item.id,
+                      )!;
+                      return getItemSplitMode(item) === 'quantity'
+                        ? `${item.name}（残り ${allocation.unassignedQuantity}）`
+                        : item.name;
+                    })
+                    .join('・')}
                 </p>
+              </div>
+            )}
+            <div className="settlement-actions">
+              {isOwner &&
+                (room.closed ? (
+                  <button
+                    className="text-button"
+                    onClick={() => setConfirming({ action: 'reopen', version: room.version })}
+                    disabled={busy}
+                  >
+                    <RotateCcw size={16} />
+                    {fixedAmounts ? '入力を再開する' : '選択を再開する'}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="button primary"
+                      disabled={busy || !settlement.ready}
+                      onClick={() => setConfirming({ action: 'close', version: room.version })}
+                    >
+                      <LockKeyhole size={16} />
+                      {fixedAmounts ? '全員の入力を締め切る' : 'この金額で確定'}
+                    </button>
+                    <p className="muted small">
+                      {settlement.ready
+                        ? fixedAmounts
+                          ? '締め切ると受け取りを記録できます。'
+                          : '全員の入力が完了しました。金額を確認して確定できます。'
+                        : missingParticipants > 0
+                          ? fixedAmounts
+                            ? `参加 ${room.members.length} / ${participantCount}人`
+                            : `あと${missingParticipants}人の参加を待っています。共有リンクを送ってください。`
+                          : fixedAmounts
+                            ? doneCount < participantCount
+                              ? `入力完了 ${doneCount} / ${participantCount}人`
+                              : '残りの数を確認してください。'
+                            : '全員が入力を完了し、選び忘れや数の残りがなくなると確定できます。'}
+                    </p>
+                  </>
+                ))}
+              {room.closed && (
+                <CopyButton
+                  text={transferText}
+                  label="割り勘の結果をコピー"
+                  onCopied={() => setNotice('割り勘の結果をコピーしました')}
+                />
               )}
             </div>
-            <span className="summary-total">{yen(room.total)}</span>
-          </div>
-          <div className="settlement-list">
-            {room.members.map((m, i) => (
-              <div className="settlement-person" key={m.id}>
-                <Avatar name={m.name} index={i} />
-                <div className="settlement-person-name">
-                  <strong>
-                    {m.name}
-                    {m.id === member?.id && <small>あなた</small>}
-                  </strong>
-                  <span>
-                    {m.id === payer.id ? '立て替えた人 · 自分の分' : `${payer.name}さんに返す`}
-                  </span>
-                </div>
-                <div className="settlement-person-amount">
-                  <strong>{yen(settlement.memberAmounts[m.id] || 0)}</strong>
-                  <span>
-                    {room.closed
-                      ? m.id === payer.id
-                        ? ''
-                        : room.paidMemberIds.includes(m.id)
-                          ? '受け取り済み'
-                          : '受け取り待ち'
-                      : m.done
-                        ? fixedAmounts
-                          ? '金額確定'
-                          : '入力完了'
-                        : '入力中'}
-                  </span>
-                </div>
-                {!room.closed && isOwner && m.id !== payer.id && (
-                  <button
-                    className="icon-button"
-                    aria-label={`${m.name}さんを参加者から削除`}
-                    disabled={busy}
-                    onClick={() => setRemoving(m.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-                {room.closed && isOwner && m.id !== payer.id && (
-                  <button
-                    className={`paid-button ${room.paidMemberIds.includes(m.id) ? 'is-paid' : ''}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void mutate(
-                        '/paid',
-                        { memberId: m.id, paid: !room.paidMemberIds.includes(m.id) },
-                        'PUT',
-                      )
-                    }
-                  >
-                    {room.paidMemberIds.includes(m.id) ? (
-                      <CheckCheck size={16} />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    {room.paidMemberIds.includes(m.id) ? '受け取り済み' : '受け取った'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {fixedAmounts && settlement.pendingParticipantAmount > 0 && (
-            <p className="pending-participant-amount">
-              まだ参加していない{missingParticipants}人の分{' '}
-              <strong>{yen(settlement.pendingParticipantAmount)}</strong>
-            </p>
-          )}
-          {settlement.unassignedCount > 0 && (
-            <div className="unassigned">
-              <div>
-                <span className="small-dot" />
-                <strong>まだ選ばれていないものが{settlement.unassignedCount}件</strong>
-                <span>
-                  {yen(settlement.unassignedAmount - settlement.pendingParticipantAmount)}
-                </span>
-              </div>
-              <p>
-                {room.items
-                  .filter((_, index) => settlement.itemAllocations[index].unassignedQuantity > 0)
-                  .map((item) => {
-                    const allocation = settlement.itemAllocations.find(
-                      (a) => a.itemId === item.id,
-                    )!;
-                    return getItemSplitMode(item) === 'quantity'
-                      ? `${item.name}（残り ${allocation.unassignedQuantity}）`
-                      : item.name;
-                  })
-                  .join('・')}
-              </p>
-            </div>
-          )}
-          <div className="settlement-actions">
-            {isOwner &&
-              (room.closed ? (
-                <button
-                  className="text-button"
-                  onClick={() => setConfirming({ action: 'reopen', version: room.version })}
-                  disabled={busy}
-                >
-                  <RotateCcw size={16} />
-                  {fixedAmounts ? '入力を再開する' : '選択を再開する'}
-                </button>
-              ) : (
-                <>
-                  <button
-                    className="button primary"
-                    disabled={busy || !settlement.ready}
-                    onClick={() => setConfirming({ action: 'close', version: room.version })}
-                  >
-                    <LockKeyhole size={16} />
-                    {fixedAmounts ? '全員の入力を締め切る' : 'この金額で確定'}
-                  </button>
-                  <p className="muted small">
-                    {settlement.ready
-                      ? fixedAmounts
-                        ? '締め切ると受け取りを記録できます。'
-                        : '全員の入力が完了しました。金額を確認して確定できます。'
-                      : missingParticipants > 0
-                        ? fixedAmounts
-                          ? `参加 ${room.members.length} / ${participantCount}人`
-                          : `あと${missingParticipants}人の参加を待っています。共有リンクを送ってください。`
-                        : fixedAmounts
-                          ? doneCount < participantCount
-                            ? `入力完了 ${doneCount} / ${participantCount}人`
-                            : '残りの数を確認してください。'
-                          : '全員が入力を完了し、選び忘れや数の残りがなくなると確定できます。'}
-                  </p>
-                </>
-              ))}
-            {room.closed && (
-              <CopyButton
-                text={transferText}
-                label="割り勘の結果をコピー"
-                onCopied={() => setNotice('割り勘の結果をコピーしました')}
-              />
-            )}
-          </div>
-        </section>
+          </section>
+        </details>
       )}
       {member && !room.closed && tab === 'items' && (
         <div className="mobile-amount-bar">
