@@ -1,0 +1,199 @@
+.home-intro {
+  max-width: 32em;
+  margin-top: var(--space-6);
+  color: var(--color-text-secondary);
+  font-size: var(--font-control);
+  line-height: 1.9;
+}
+.home-availability {
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-small);
+  line-height: 1.8;
+}
+.start-card {
+  scroll-margin-top: var(--space-6);
+}
+.landing-section {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-12) 0;
+}
+.landing-section h2 {
+  font-size: var(--font-card-title);
+  line-height: 1.6;
+}
+.landing-section-intro {
+  margin-top: var(--space-3);
+  font-size: var(--font-control);
+  color: var(--color-text-muted);
+  line-height: 1.9;
+}
+.split-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-7);
+}
+.split-example {
+  padding: var(--space-7);
+  background: var(--color-soft);
+  border-radius: var(--radius-panel);
+}
+.split-example h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-section);
+}
+.split-example h3 svg {
+  color: var(--color-action);
+}
+.split-example > p {
+  margin-top: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.8;
+}
+.split-example-receipt {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  font-size: var(--font-control);
+}
+.split-example-item {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.split-example-receipt > p {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-small);
+  line-height: 1.8;
+}
+.split-example-amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--color-border);
+}
+.split-example-amounts dt {
+  font-size: var(--font-small);
+  color: var(--color-text-muted);
+}
+.split-example-amounts dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-card-title);
+  font-weight: 600;
+  color: var(--color-action);
+  font-variant-numeric: tabular-nums;
+}
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+  margin: var(--space-7) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-step-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-action);
+}
+.landing-step-number {
+  display: grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--color-soft);
+  font-size: var(--font-control);
+  font-weight: 600;
+}
+.landing-steps h3 {
+  margin-top: var(--space-4);
+  font-size: var(--font-section);
+}
+.landing-steps p {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-control);
+  line-height: 1.9;
+}
+.landing-questions {
+  margin-top: var(--space-5);
+}
+.landing-questions details {
+  border-bottom: 1px solid var(--color-border);
+}
+.landing-questions summary {
+  padding: var(--space-5) var(--space-1);
+  cursor: pointer;
+  font-size: var(--font-control);
+  font-weight: 500;
+  line-height: 1.8;
+}
+.landing-questions summary::marker {
+  color: var(--color-action);
+}
+.landing-questions details > p {
+  padding: 0 var(--space-6) var(--space-5);
+  max-width: 64em;
+  color: var(--color-text-muted);
+  font-size: var(--font-control);
+  line-height: 1.9;
+}
+.landing-start {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--space-8);
+}
+@media (max-width: 760px) {
+  .home-intro {
+    margin-right: auto;
+    margin-left: auto;
+    text-align: left;
+  }
+  .landing-section {
+    padding: var(--space-8) 0;
+  }
+  .split-examples,
+  .landing-steps {
+    grid-template-columns: 1fr;
+  }
+  .split-example {
+    padding: var(--space-5);
+  }
+  .landing-steps {
+    gap: var(--space-7);
+  }
+  .landing-steps li {
+    display: grid;
+    grid-template-columns: var(--space-8) minmax(0, 1fr);
+    column-gap: var(--space-4);
+  }
+  .landing-step-heading {
+    grid-row: span 2;
+    align-items: flex-start;
+  }
+  .landing-step-heading > svg {
+    display: none;
+  }
+  .landing-steps h3 {
+    margin-top: var(--space-1);
+  }
+  .landing-questions details > p {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+  }
+  .landing-start .button {
+    width: 100%;
+  }
+}

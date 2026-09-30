@@ -27,6 +27,7 @@ import { createItemId } from '../shared/id';
 import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession } from './api';
 import CameraCapture from './CameraCapture';
 import ItemSelection from './ItemSelection';
+import LandingGuide from './LandingGuide';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
@@ -189,6 +190,11 @@ export default function App() {
                 <br />
                 <span>みんなの割り勘。</span>
               </h1>
+              <p className="home-intro">
+                レシートから品目を読み取り、リンクで共有。
+                食事や買い出しの代金を、買った個数やシェアした人に合わせて分けられます。
+              </p>
+              <p className="home-availability">会員登録・アプリのインストールは不要です。</p>
               <div className="mini-receipt" aria-label="品目を選ぶだけで割り勘できるイメージ">
                 <div className="mini-receipt-title">
                   <ReceiptText size={16} />
@@ -217,7 +223,7 @@ export default function App() {
                 </div>
               </div>
             </section>
-            <section className="start-card">
+            <section className="start-card" id="start">
               <h2>精算をはじめる</h2>
               <div
                 className={`upload-area ${scan !== null ? 'scanning' : ''}`}
@@ -318,6 +324,7 @@ export default function App() {
               </div>
             </section>
           )}
+          <LandingGuide />
         </main>
       )}
       {cameraOpen && (
