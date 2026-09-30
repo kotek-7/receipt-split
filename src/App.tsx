@@ -15,9 +15,7 @@ import {
   Plus,
   ReceiptText,
   RotateCcw,
-  ScanLine,
   Share2,
-  Sparkles,
   Trash2,
   Users,
   X,
@@ -57,7 +55,7 @@ function Brand() {
   return (
     <a href="/" className="brand" aria-label="レシわけ ホーム">
       <span className="brand-icon">
-        <ReceiptText size={22} />
+        <ReceiptText size={22} aria-hidden="true" />
       </span>
       レシわけ<span className="brand-dot">.</span>
     </a>
@@ -186,38 +184,15 @@ export default function App() {
         <main className="home container">
           <div className="hero">
             <section className="hero-copy">
-              <div className="eyebrow">
-                <span className="small-dot" />
-                みんなのごはんに、ちょうどいい割り勘。
-              </div>
               <h1>
-                食べたぶんだけ、
+                レシートで、
                 <br />
-                <span>気持ちよく。</span>
+                <span>みんなの割り勘。</span>
               </h1>
-              <p className="hero-description">
-                レシートを撮って、リンクを送るだけ。
-                <br />
-                自分の品目を選べば、返す金額がすぐわかる。
-              </p>
-              <div className="hero-benefits">
-                <span>
-                  <Check size={15} />
-                  登録いらず
-                </span>
-                <span>
-                  <Check size={15} />
-                  アプリいらず
-                </span>
-                <span>
-                  <Check size={15} />
-                  1円までぴったり
-                </span>
-              </div>
               <div className="mini-receipt" aria-label="品目を選ぶだけで割り勘できるイメージ">
                 <div className="mini-receipt-title">
                   <ReceiptText size={16} />
-                  今日のおいしい時間<span>RECEIPT</span>
+                  レシート
                 </div>
                 <div className="mini-item">
                   <span className="mini-check">
@@ -238,20 +213,12 @@ export default function App() {
                 </div>
                 <div className="mini-total">
                   <span>あなたの分</span>
-                  <strong>
-                    ¥1,300<span>ぴったり！</span>
-                  </strong>
+                  <strong>¥1,300</strong>
                 </div>
-                <span className="receipt-caption">
-                  <Sparkles size={14} />
-                  シェアした料理は、自動で人数割り。
-                </span>
               </div>
             </section>
             <section className="start-card">
-              <span className="card-step">LET’S SPLIT</span>
-              <h2>まずは、レシートを1枚。</h2>
-              <p>立て替えた人がここからはじめます。</p>
+              <h2>精算をはじめる</h2>
               <div
                 className={`upload-area ${scan !== null ? 'scanning' : ''}`}
                 onDragOver={(e) => e.preventDefault()}
@@ -280,8 +247,7 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <h3>文字も金額も、自動で読み取り</h3>
-                    <p>写真をここにドロップしてもOK</p>
+                    <p className="drop-hint">写真をここにドロップ</p>
                     <button className="button primary full" onClick={() => setCameraOpen(true)}>
                       <Camera size={19} />
                       レシートを撮る
@@ -299,7 +265,6 @@ export default function App() {
               </div>
               <ErrorMessage>{error}</ErrorMessage>
               <div className="alternative">
-                <span>レシートが手元にないときは</span>
                 <button
                   className="text-button"
                   disabled={scan !== null}
@@ -310,7 +275,17 @@ export default function App() {
                   }}
                 >
                   手入力ではじめる
-                  <ArrowRight size={16} />
+                </button>
+                <button
+                  className="text-button"
+                  disabled={scan !== null}
+                  onClick={() => {
+                    setError('');
+                    setPhoto(undefined);
+                    setDraft(demo());
+                  }}
+                >
+                  サンプルで試す
                 </button>
               </div>
               <div className="privacy-note">
@@ -319,56 +294,6 @@ export default function App() {
               </div>
             </section>
           </div>
-          <section className="how-section" id="how">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">HOW IT WORKS</span>
-                <h2>集まったあとの精算も、かんたんに。</h2>
-              </div>
-              <button
-                className="text-button sample-button"
-                disabled={scan !== null}
-                onClick={() => {
-                  setError('');
-                  setPhoto(undefined);
-                  setDraft(demo());
-                }}
-              >
-                サンプルで試す
-                <ArrowRight size={16} />
-              </button>
-            </div>
-            <div className="steps">
-              {[
-                {
-                  icon: ScanLine,
-                  title: '撮って、確認する',
-                  body: '品目と金額を自動で読み取り。間違いがあれば、その場で修正。',
-                },
-                {
-                  icon: Link,
-                  title: 'リンクを送る',
-                  body: 'いつものグループにURLを共有。登録なしで、みんなが参加。',
-                },
-                {
-                  icon: CheckCheck,
-                  title: '選んで、すっきり',
-                  body: '食べたものをタップするだけ。誰がいくら返すか、一目でわかる。',
-                },
-              ].map(({ icon: Icon, title, body }, i) => (
-                <div className="step" key={title}>
-                  <div className="step-top">
-                    <span className="step-icon">
-                      <Icon size={23} strokeWidth={1.6} />
-                    </span>
-                    <span className="step-number">0{i + 1}</span>
-                  </div>
-                  <h3>{title}</h3>
-                  <p>{body}</p>
-                </div>
-              ))}
-            </div>
-          </section>
           {getRecents().length > 0 && (
             <section className="recent-section">
               <div className="section-heading">
@@ -395,11 +320,6 @@ export default function App() {
           )}
         </main>
       )}
-      <footer className="site-footer">
-        <span>レシわけ</span>
-        <p>楽しい時間に、気持ちのいいしめくくりを。</p>
-        <span className="footer-label">MADE FOR SHARING</span>
-      </footer>
       {cameraOpen && (
         <CameraCapture
           onCapture={(file) => void importPhoto(file)}
@@ -511,11 +431,12 @@ function Editor({
         戻る
       </button>
       <div className="page-heading">
-        <span className="eyebrow">STEP 01 / CHECK YOUR RECEIPT</span>
-        <h1>読み取り内容を確認</h1>
-        <p>品目・個数・分け方を確認して、みんなに共有しましょう。</p>
+        <h1>品目を確認</h1>
       </div>
-      <form onSubmit={submit} className="editor-layout">
+      <form
+        onSubmit={submit}
+        className={`editor-layout ${photo || draft.rawText ? 'with-preview' : ''}`}
+      >
         <section className="panel editor-panel">
           <div className="form-row">
             <label>
@@ -719,36 +640,23 @@ function Editor({
             {busy ? <Spinner /> : <Link size={18} />}共有リンクを作る
             <ArrowRight size={17} />
           </button>
-          <p className="under-button">このあと、あなたの品目も選びます。</p>
         </section>
-        <aside className="editor-aside">
-          {photo ? (
-            <div className="photo-panel">
-              <span className="eyebrow">YOUR RECEIPT</span>
-              <img src={photo} alt="アップロードしたレシート。読み取り内容と比較してください" />
-            </div>
-          ) : (
-            <div className="editor-tip">
-              <span className="tip-icon">
-                <Users size={26} />
-              </span>
-              <h3>みんなの分も、まとめて。</h3>
-              <p>一緒に払った品目をすべて入力します。誰の分かは、共有したあとに選べます。</p>
-            </div>
-          )}
-          <div className="info-box">
-            <Sparkles size={17} />
-            <p>
-              飲み物は「各自のもの」、ピザなどは「シェアするもの」。金額は購入数すべての合計です。
-            </p>
-          </div>
-          {draft.rawText && (
-            <details className="raw-text">
-              <summary>読み取ったテキストを見る</summary>
-              <pre>{draft.rawText}</pre>
-            </details>
-          )}
-        </aside>
+        {(photo || draft.rawText) && (
+          <aside className="editor-aside">
+            {photo && (
+              <div className="photo-panel">
+                <h2>レシート</h2>
+                <img src={photo} alt="読み取ったレシート" />
+              </div>
+            )}
+            {draft.rawText && (
+              <details className="raw-text">
+                <summary>読み取ったテキスト</summary>
+                <pre>{draft.rawText}</pre>
+              </details>
+            )}
+          </aside>
+        )}
       </form>
     </main>
   );
@@ -919,12 +827,11 @@ function RoomPage({
         </a>
         <span className={`status-pill ${room.closed ? 'closed' : ''}`}>
           {room.closed ? <LockKeyhole size={12} /> : <span className="small-dot" />}
-          {room.closed ? '精算が確定しました' : 'みんなの選択を受付中'}
+          {room.closed ? '精算が確定しました' : '選択受付中'}
         </span>
       </div>
       <div className="room-heading">
         <div>
-          <span className="eyebrow">OUR RECEIPT</span>
           <h1>{room.title}</h1>
           <p>
             <span>{payer.name}さんが立て替え</span>
@@ -948,18 +855,14 @@ function RoomPage({
             <Users size={30} />
           </span>
           <h2>
-            {room.closed
-              ? 'みんなの精算が確定しました'
-              : isFull
-                ? '全員が参加しています'
-                : 'あなたの名前を教えてください'}
+            {room.closed ? '精算が確定しました' : isFull ? '全員が参加しています' : '精算に参加'}
           </h2>
           <p>
             {room.closed
               ? '参加者ごとの支払額は以下で確認できます。'
               : isFull
                 ? '参加済みの方は、参加したときのブラウザから開いてください。'
-                : '登録は不要。名前を入れて、自分の品目を選びましょう。'}
+                : '名前を入力して参加してください。'}
           </p>
           {!room.closed && !isFull && (
             <form onSubmit={join}>
@@ -1053,7 +956,6 @@ function RoomPage({
             </div>
           </section>
           <aside className="amount-card">
-            <span className="eyebrow">YOUR SHARE</span>
             <h2>{isOwner ? 'あなたの負担額' : `${payer.name}さんに返す金額`}</h2>
             <div className="large-amount">{yen(myAmount)}</div>
             <span className="amount-status">
@@ -1079,9 +981,7 @@ function RoomPage({
                   disabled={busy}
                   onClick={() =>
                     void mutate('/selection', selectionData(selected, !member.done), 'PUT', () =>
-                      setNotice(
-                        member.done ? '選択を再開しました' : '入力完了をみんなに知らせました',
-                      ),
+                      setNotice(member.done ? '選択を再開しました' : '入力完了にしました'),
                     )
                   }
                 >
@@ -1098,7 +998,6 @@ function RoomPage({
                       ? 'これで入力完了'
                       : '負担する品目なしで完了'}
                 </button>
-                <p className="under-button">確定前なら、あとから選び直せます。</p>
               </>
             )}
             <button className="text-button summary-link" onClick={() => setTab('summary')}>
@@ -1303,7 +1202,7 @@ function RoomPage({
         <Modal title="参加者を削除しますか？" onClose={() => setRemoving(null)}>
           <p className="modal-description">
             {room.members.find((m) => m.id === removing)?.name}
-            さんの選択を取り消して、参加者から削除します。間違って参加した人を整理するときに使ってください。
+            さんの選択を取り消して、参加者から削除します。
           </p>
           <button
             className="button primary full"
@@ -1417,14 +1316,9 @@ function ShareModal({ room, onClose }: { room: Room; onClose: () => void }) {
   const url = `${location.origin}/r/${room.id}`;
   const [error, setError] = useState('');
   return (
-    <Modal title="みんなにリンクを送ろう" onClose={onClose}>
-      <p className="modal-description">
-        いつものグループに送るだけ。
-        <br />
-        参加した人が、自分の品目を選べます。
-      </p>
+    <Modal title="リンクを共有" onClose={onClose}>
       <div className="qr-code">
-        <QRCodeSVG value={url} size={164} fgColor="#183d32" marginSize={1} />
+        <QRCodeSVG value={url} size={164} fgColor="currentColor" marginSize={1} />
       </div>
       <div className="share-room-name">
         <ReceiptText size={16} />
@@ -1446,7 +1340,7 @@ function ShareModal({ room, onClose }: { room: Room; onClose: () => void }) {
               try {
                 await navigator.share({
                   title: `${room.title} | レシわけ`,
-                  text: '自分の品目を選んでね！',
+                  text: '負担する品目を選んでください。',
                   url,
                 });
               } catch (e) {

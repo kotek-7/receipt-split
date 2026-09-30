@@ -1,23 +1,23 @@
 .modal.camera-modal {
   width: 460px;
-  padding: 22px;
+  padding: var(--space-6);
   overscroll-behavior: contain;
 }
 .modal.camera-modal::backdrop {
-  background: #102a25b8;
+  background: var(--color-camera-backdrop);
   backdrop-filter: none;
 }
 .camera-modal .modal-heading {
-  margin-bottom: 5px;
+  margin-bottom: var(--space-1);
 }
 .camera-modal .camera-close {
   width: 44px;
   height: 44px;
 }
 .camera-instruction {
-  margin: 0 0 16px;
-  color: #687d70;
-  font-size: 12px;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-small);
   line-height: 1.8;
 }
 .camera-viewfinder {
@@ -26,8 +26,8 @@
   height: min(48dvh, 410px);
   min-height: 160px;
   overflow: hidden;
-  border-radius: 12px;
-  background: #172920;
+  border-radius: var(--radius-panel);
+  background: var(--color-camera);
 }
 .camera-viewfinder video {
   display: block;
@@ -42,29 +42,29 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 20px;
-  color: #edf5eb;
-  font-size: 12px;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  color: var(--color-on-dark);
+  font-size: var(--font-small);
   line-height: 1.8;
 }
 .camera-error {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #fff3ea;
-  color: #875c3d;
-  font-size: 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-size: var(--font-small);
   line-height: 1.8;
 }
 .camera-actions {
   display: grid;
-  gap: 9px;
-  margin-top: 16px;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 @media (max-width: 480px) {
   .modal.camera-modal {
-    padding: 17px;
+    padding: var(--space-4);
     max-width: calc(100vw - 20px);
     max-height: calc(100dvh - 24px);
   }

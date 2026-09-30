@@ -169,6 +169,7 @@ docker run --rm -p 4317:4317 -v receipt-split-data:/app/data receipt-split
 ## 構成
 
 - `src/`: React・TypeScriptの画面、ブラウザ内OCR
+- `src/tokens.css`: 色・文字・余白などの共通値。画面のルールは[デザインシステム](docs/design-system.md)を参照
 - `server/`: ローカル・Docker用のExpress APIとSQLite永続化
 - `worker/`: Cloudflare Worker APIとDurable ObjectのSQLite永続化
 - `shared/`: フロントエンドとサーバーで共有する型・計算処理
