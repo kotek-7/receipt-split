@@ -1294,7 +1294,7 @@ function RoomPage({
                     disabled={busy}
                   >
                     <RotateCcw size={16} />
-                    {fixedAmounts ? '入力を再開する' : '選択を再開する'}
+                    締め切りを解除する
                   </button>
                 ) : (
                   <>
@@ -1375,9 +1375,7 @@ function RoomPage({
               ? fixedAmounts
                 ? '全員の入力を締め切りますか？'
                 : 'この金額で確定しますか？'
-              : fixedAmounts
-                ? '入力を再開しますか？'
-                : 'みんなで選び直しますか？'
+              : '締め切りを解除しますか？'
           }
           onClose={() => setConfirming(null)}
         >
@@ -1409,9 +1407,7 @@ function RoomPage({
                       ? fixedAmounts
                         ? '入力を締め切りました'
                         : '金額を確定しました'
-                      : fixedAmounts
-                        ? '入力を再開しました'
-                        : '選択を再開しました',
+                      : '締め切りを解除しました',
                   );
                 },
               )
@@ -1422,9 +1418,7 @@ function RoomPage({
               ? fixedAmounts
                 ? '入力を締め切る'
                 : '金額を確定する'
-              : fixedAmounts
-                ? '入力を再開する'
-                : '選択を再開する'}
+              : '締め切りを解除する'}
           </button>
         </Modal>
       )}

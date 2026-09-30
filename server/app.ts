@@ -220,7 +220,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
       if (room.closed)
         throw new ApiError(
           409,
-          'この割り勘は確定済みです。立て替えた人に再開をお願いしてください。',
+          'この割り勘は締め切り済みです。立て替えた人に締め切りの解除をお願いしてください。',
         );
       if (room.members.some((member) => normalizedName(member.name) === normalizedName(name))) {
         throw new ApiError(409, '同じ名前の人が参加しています。別の名前で参加してください。');
@@ -247,7 +247,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
         if (room.closed)
           throw new ApiError(
             409,
-            '割り勘が確定したため参加者を削除できません。選択を再開してから操作してください。',
+            '割り勘を締め切ったため参加者を削除できません。締め切りを解除してから操作してください。',
           );
         const memberId = request.params.memberId;
         if (memberId === room.payerId) throw new ApiError(400, '立て替えた人は削除できません。');
@@ -276,7 +276,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
         if (room.closed)
           throw new ApiError(
             409,
-            '割り勘が確定したため変更できません。立て替えた人に再開をお願いしてください。',
+            '割り勘を締め切ったため変更できません。立て替えた人に締め切りの解除をお願いしてください。',
           );
         if (input.itemIds.some((id) => !room.items.some((item) => item.id === id)))
           throw new ApiError(400, 'レシートにない内容が選ばれています。画面を更新してください。');

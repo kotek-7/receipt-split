@@ -545,10 +545,10 @@ test('the payer can finish, close input, record a received payment and reopen in
   assert.deepEqual(app.payments, [{ memberId: 'b', paid: true }]);
   assert.equal(app.button('受け取り済み').classList.contains('is-paid'), true);
   assert.match(management.querySelector('summary')?.textContent ?? '', /1 \/ 1人/);
-  await app.click('入力を再開する');
+  await app.click('締め切りを解除する');
   const confirmReopen = app.host.querySelector<HappyButton>('dialog .button.primary');
   assert.ok(confirmReopen);
-  assert.equal(confirmReopen.textContent.trim(), '入力を再開する');
+  assert.equal(confirmReopen.textContent.trim(), '締め切りを解除する');
   await act(async () => confirmReopen.click());
   assert.deepEqual(
     app.closures.map(({ closed }) => closed),
