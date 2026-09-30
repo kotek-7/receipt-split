@@ -807,11 +807,47 @@ label > input {
   margin: 0;
   padding: 9px 8px;
 }
-.item-split-options select {
-  width: auto;
-  min-height: 42px;
-  padding: 9px 8px;
+.split-mode-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: 1 1 260px;
+}
+.split-mode-choice {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: #526257;
+  text-align: left;
+}
+.split-mode-choice[aria-pressed='true'] {
+  border-color: var(--green);
+  background: #eff5e9;
+  color: var(--green);
+}
+.split-mode-choice:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.split-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.split-mode-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
 }
 .icon-button {
   display: inline-flex;
@@ -1992,9 +2028,6 @@ button.selectable-item:not(:disabled):hover {
   .editable-item input {
     font-size: 16px;
     padding: 11px 9px;
-  }
-  .item-split-options select {
-    font-size: 16px;
   }
   .item-editor-labels {
     grid-template-columns: 1fr 83px 28px;

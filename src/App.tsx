@@ -426,7 +426,7 @@ export default function App() {
             </li>
           </ol>
           <div className="info-box">
-            同じ商品を複数買ったときは「個数で分ける」で、自分の個数を選びます。シェアした料理は「均等に割り勘」で、負担する人全員が選びます。税・値引きなどの差額は金額に応じて按分します。
+            「個数分を払う」は自分の個数分を負担。「選んだ人で割る」は、その品目を選んだ人だけで均等に割り勘します。税・値引きなどの差額は金額に応じて按分します。
           </div>
           <p className="muted small">
             共有リンクを知っている人は精算内容を閲覧できます。参加したブラウザをそのまま使ってください。
@@ -636,28 +636,42 @@ function Editor({
                     />
                     個
                   </label>
-                  <label>
-                    <span className="sr-only">品目{index + 1}の分け方</span>
-                    <select
-                      aria-label={`品目${index + 1}の分け方`}
-                      value={getItemSplitMode(item)}
-                      onChange={(e) =>
-                        updateItems(
-                          items.map((i) =>
-                            i.id === item.id
-                              ? {
-                                  ...i,
-                                  splitMode: e.target.value as 'equal' | 'quantity',
-                                }
-                              : i,
-                          ),
-                        )
-                      }
-                    >
-                      <option value="quantity">個数で分ける</option>
-                      <option value="equal">均等に割り勘</option>
-                    </select>
-                  </label>
+                  <div
+                    className="split-mode-choices"
+                    role="group"
+                    aria-label={`品目${index + 1}の分け方`}
+                  >
+                    {[
+                      {
+                        mode: 'quantity' as const,
+                        label: '個数分を払う',
+                      },
+                      {
+                        mode: 'equal' as const,
+                        label: '選んだ人で割る',
+                      },
+                    ].map(({ mode, label }) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className="split-mode-choice"
+                        aria-label={`品目${index + 1}：${label}`}
+                        aria-pressed={getItemSplitMode(item) === mode}
+                        onClick={() =>
+                          updateItems(
+                            items.map((i) => (i.id === item.id ? { ...i, splitMode: mode } : i)),
+                          )
+                        }
+                      >
+                        <span className="split-mode-title">
+                          <span className="split-mode-check" aria-hidden="true">
+                            {getItemSplitMode(item) === mode && <Check size={12} strokeWidth={3} />}
+                          </span>
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
@@ -728,7 +742,7 @@ function Editor({
           <div className="info-box">
             <Sparkles size={17} />
             <p>
-              1人1個ずつなら「個数で分ける」。シェアする料理は「均等に割り勘」。金額は購入数すべての合計を入力します。
+              飲み物は「個数分を払う」、シェアする料理は「選んだ人で割る」。金額は購入数すべての合計です。
             </p>
           </div>
           {draft.rawText && (

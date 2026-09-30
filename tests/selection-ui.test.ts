@@ -5,7 +5,6 @@ import {
   Window,
   type HTMLButtonElement as HappyButton,
   type HTMLInputElement as HappyInput,
-  type HTMLSelectElement as HappySelect,
 } from 'happy-dom';
 import { act, createElement } from 'react';
 import type { ReceiptItem, Room } from '../shared/types';
@@ -168,14 +167,6 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
       });
       return input;
     },
-    async select(label: string, value: string) {
-      const select = host.querySelector(`select[aria-label="${label}"]`)!;
-      assert.ok(select instanceof window.HTMLSelectElement);
-      await act(async () => {
-        select.value = value;
-        select.dispatchEvent(new window.Event('change', { bubbles: true }));
-      });
-    },
     async toggleSharedItem() {
       const shared = Array.from(host.querySelectorAll<HappyButton>('button[aria-pressed]')).find(
         (element) => element.textContent.includes('ピザ'),
@@ -201,15 +192,19 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.equal(quantity.value, '', 'clearing the field must leave an editable blank');
   assert.equal(quantity.validity.valueMissing, true);
   await app.input('input[aria-label="品目1の購入数"]', '2');
-  assert.equal(
-    app.host.querySelector<HappySelect>('select[aria-label="品目1の分け方"]')?.value,
-    'quantity',
-  );
+  assert.equal(app.button('品目1：個数分を払う').getAttribute('aria-pressed'), 'true');
   await app.click('品目を追加');
   await app.input('input[aria-label="品目2の名前"]', 'ピザ');
   await app.input('input[aria-label="品目2の金額"]', '900');
   await app.input('input[aria-label="品目2の購入数"]', '2');
-  await app.select('品目2の分け方', 'equal');
+  await app.click('品目2：選んだ人で割る');
+  assert.equal(app.button('品目2：選んだ人で割る').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.button('品目2：個数分を払う').getAttribute('aria-pressed'), 'false');
+  assert.equal(app.button('品目1：個数分を払う').getAttribute('aria-pressed'), 'true');
+  assert.equal(app.creations.length, 0, 'changing the split mode must not submit the form');
+  await app.input('input[aria-label="品目2の購入数"]', '3');
+  assert.equal(app.button('品目2：選んだ人で割る').getAttribute('aria-pressed'), 'true');
+  await app.input('input[aria-label="品目2の購入数"]', '2');
   assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
   await app.click('共有リンクを作る');
   assert.equal(app.creations.length, 1);
@@ -229,8 +224,8 @@ test('editor submits purchased counts and chosen split modes without multiplying
   assert.equal(app.creations[0].participantCount, 3);
   assert.match(app.host.textContent, /1 \/ 3人が参加/);
   assert.match(app.host.textContent, /0 \/ 3人が入力完了/);
-  assert.match(app.host.textContent, /全2個 · 個数で分ける/);
-  assert.match(app.host.textContent, /全2個 · 均等に割り勘/);
+  assert.match(app.host.textContent, /全2個 · 個数分を払う/);
+  assert.match(app.host.textContent, /全2個 · 選んだ人で割る/);
 });
 
 test('quantity controls and shared-item toggles preserve each other and stop at the purchased count', async (t) => {
