@@ -328,6 +328,138 @@ countedRoom = await api(
 );
 assert.equal(countedRoom.closed, true);
 
+const fixedInput = {
+  title: '固定人数の動作確認',
+  payerName: '固定人数・立替',
+  participantCount: 4,
+  calculationMode: 'fixed-participants',
+  total: 3_001,
+  items: [
+    { id: 'beer', name: 'ビール', amount: 1_800, quantity: 3, splitMode: 'quantity' },
+    { id: 'food', name: '唐揚げ', amount: 1_200, quantity: 1, splitMode: 'equal' },
+  ],
+};
+await api('POST', '/rooms', { ...fixedInput, participantCount: undefined }, undefined, 400);
+await api('POST', '/rooms', { ...fixedInput, calculationMode: 'unknown' }, undefined, 400);
+const fixed = await api('POST', '/rooms', fixedInput, undefined, 201);
+const fixedRoute = `/rooms/${fixed.room.id}`;
+const fixedPayer = fixed.identity;
+assert.equal(fixed.room.calculationMode, 'fixed-participants');
+assert.equal(fixed.room.participantCount, 4);
+assert.equal(Object.hasOwn(created.room, 'calculationMode'), false);
+const autoSharedError = await api(
+  'PUT',
+  `${fixedRoute}/selection`,
+  { itemIds: ['food'], done: true },
+  fixedPayer.token,
+  400,
+);
+assert.match(autoSharedError.error, /自動で含まれます/);
+assert.deepEqual(await api('GET', fixedRoute), fixed.room);
+const selectFixed = (identity, quantity, done = true) =>
+  api(
+    'PUT',
+    `${fixedRoute}/selection`,
+    { itemIds: quantity ? ['beer'] : [], quantities: quantity ? { beer: quantity } : {}, done },
+    identity.token,
+  );
+const assertFixedAmount = (current) => {
+  const result = calculateSettlement(current);
+  assert.equal(result.memberAmounts[fixedPayer.memberId], 901);
+  assert.equal(result.roundingAmount, 1);
+  assert.equal(
+    Object.values(result.memberAmounts).reduce((sum, amount) => sum + amount, 0) +
+      result.unassignedAmount,
+    3_001,
+  );
+  return result;
+};
+let fixedRoom = await selectFixed(fixedPayer, 1);
+assert.equal(assertFixedAmount(fixedRoom).pendingParticipantAmount, 900);
+await api(
+  'POST',
+  `${fixedRoute}/close`,
+  { closed: true, version: fixedRoom.version },
+  fixedPayer.token,
+  409,
+);
+const fixedOther = (
+  await api('POST', `${fixedRoute}/members`, { name: '固定人数・参加' }, undefined, 201)
+).identity;
+assertFixedAmount(await api('GET', fixedRoute));
+assertFixedAmount(await selectFixed(fixedOther, 2));
+assertFixedAmount(await selectFixed(fixedOther, 0, false));
+const fixedMistake = (
+  await api('POST', `${fixedRoute}/members`, { name: '固定人数・誤参加' }, undefined, 201)
+).identity;
+assertFixedAmount(await selectFixed(fixedMistake, 1));
+fixedRoom = await api(
+  'DELETE',
+  `${fixedRoute}/members/${fixedMistake.memberId}`,
+  {},
+  fixedPayer.token,
+);
+assertFixedAmount(fixedRoom);
+assert.equal(fixedRoom.participantCount, 4);
+assert.equal(calculateSettlement(fixedRoom).pendingParticipantAmount, 600);
+await api('PUT', `${fixedRoute}/selection`, { itemIds: [], done: true }, fixedMistake.token, 403);
+const fixedThird = (
+  await api('POST', `${fixedRoute}/members`, { name: '固定人数・3人目' }, undefined, 201)
+).identity;
+const fixedFourth = (
+  await api('POST', `${fixedRoute}/members`, { name: '固定人数・4人目' }, undefined, 201)
+).identity;
+assertFixedAmount(await selectFixed(fixedFourth, 1));
+const fixedRacers = [fixedOther, fixedThird];
+const fixedRaceResults = await Promise.all(
+  fixedRacers.map(async (identity) => {
+    const response = await fetch(`${base}/api${fixedRoute}/selection`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${identity.token}` },
+      body: JSON.stringify({ itemIds: ['beer'], quantities: { beer: 1 }, done: true }),
+    });
+    return { status: response.status, data: await response.json() };
+  }),
+);
+assert.deepEqual(fixedRaceResults.map((result) => result.status).sort(), [200, 409]);
+const fixedLoser = fixedRacers[fixedRaceResults.findIndex((result) => result.status === 409)];
+fixedRoom = await selectFixed(fixedLoser, 0);
+const fixedSettlement = assertFixedAmount(fixedRoom);
+assert.equal(fixedSettlement.ready, true);
+assert.equal(fixedSettlement.pendingParticipantAmount, 0);
+assert.equal(fixedSettlement.unassignedAmount, 0);
+assert.deepEqual(
+  Object.values(fixedSettlement.memberAmounts).sort((a, b) => a - b),
+  [300, 900, 900, 901],
+);
+const fixedLoaded = await api('GET', fixedRoute);
+assert.deepEqual(fixedLoaded, fixedRoom);
+assert.equal(fixedLoaded.calculationMode, 'fixed-participants');
+fixedRoom = await api(
+  'POST',
+  `${fixedRoute}/close`,
+  { closed: true, version: fixedLoaded.version },
+  fixedPayer.token,
+);
+assert.equal(fixedRoom.closed, true);
+assertFixedAmount(fixedRoom);
+await api('PUT', `${fixedRoute}/selection`, { itemIds: [], done: false }, fixedOther.token, 409);
+fixedRoom = await api(
+  'PUT',
+  `${fixedRoute}/paid`,
+  { memberId: fixedOther.memberId, paid: true },
+  fixedPayer.token,
+);
+assert.deepEqual(fixedRoom.paidMemberIds, [fixedOther.memberId]);
+fixedRoom = await api(
+  'POST',
+  `${fixedRoute}/close`,
+  { closed: false, version: fixedRoom.version },
+  fixedPayer.token,
+);
+assert.deepEqual(fixedRoom.paidMemberIds, []);
+assertFixedAmount(fixedRoom);
+
 const oversized = await fetch(`${base}/api/rooms`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -340,5 +472,5 @@ const page = await fetch(`${base}/r/${room.id}`, { headers: { Accept: 'text/html
 assert.equal(page.status, 200);
 assert.match(await page.text(), /id="root"/);
 console.log(
-  `Cloudflare smoke passed: participant count and capacity, concurrent joins, mixed quantity/shared items, quantity race, persistent room, concurrent selections, exact yen, auth, freeze, removal, receive, reopen, SPA. ${base}/r/${room.id}`,
+  `Cloudflare smoke passed: fixed participant amounts, automatic shared costs, fixed rounding, participant count and capacity, concurrent joins, mixed quantity/shared items, quantity race, persistent room, concurrent selections, exact yen, auth, freeze, removal, receive, reopen, SPA. ${base}/r/${room.id}`,
 );

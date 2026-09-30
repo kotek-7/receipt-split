@@ -33,6 +33,7 @@ const createSchema = z
     title: z.string().trim().min(1).max(80),
     payerName: nameSchema,
     participantCount: z.number().int().min(1).max(100).optional(),
+    calculationMode: z.literal('fixed-participants').optional(),
     items: z
       .array(itemSchema)
       .min(1)
@@ -40,7 +41,8 @@ const createSchema = z
       .refine((items) => new Set(items.map((item) => item.id)).size === items.length),
     total: z.number().int().positive().max(10_000_000),
   })
-  .strict();
+  .strict()
+  .refine((input) => input.calculationMode === undefined || input.participantCount !== undefined);
 const selectionSchema = z
   .object({
     itemIds: z
@@ -188,6 +190,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
         title: input.title,
         payerId,
         participantCount: input.participantCount,
+        calculationMode: input.calculationMode,
         items: input.items,
         total: input.total,
         members: [{ id: payerId, name: input.payerName, done: false }],
@@ -277,6 +280,16 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
           );
         if (input.itemIds.some((id) => !room.items.some((item) => item.id === id)))
           throw new ApiError(400, 'レシートにない内容が選ばれています。画面を更新してください。');
+        if (
+          room.calculationMode === 'fixed-participants' &&
+          input.itemIds.some((id) =>
+            room.items.some((item) => item.id === id && getItemSplitMode(item) === 'equal'),
+          )
+        )
+          throw new ApiError(
+            400,
+            'みんなで分ける料理・飲み物は、人数分で割った金額が自動で含まれます。選ぶ必要はありません。',
+          );
         if (
           Object.keys(input.quantities ?? {}).some(
             (id) =>

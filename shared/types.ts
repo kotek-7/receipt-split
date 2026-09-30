@@ -17,6 +17,7 @@ export interface Room {
   items: ReceiptItem[];
   total: number;
   participantCount?: number;
+  calculationMode?: 'fixed-participants';
   members: Member[];
   selections: Record<string, string[]>;
   selectionQuantities?: Record<string, Record<string, number>>;
@@ -40,6 +41,7 @@ export interface ItemAllocation {
   memberAmounts: Record<string, number>;
   unassignedQuantity: number;
   unassignedAmount: number;
+  roundingAmount?: number;
 }
 export interface Settlement {
   memberAmounts: Record<string, number>;
@@ -47,6 +49,8 @@ export interface Settlement {
   unassignedAmount: number;
   unassignedCount: number;
   assignedCount: number;
+  roundingAmount: number;
+  pendingParticipantAmount: number;
   ready: boolean;
 }
 export interface ParsedReceipt {

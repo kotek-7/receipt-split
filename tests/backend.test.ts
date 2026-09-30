@@ -28,6 +28,18 @@ const mixedRoom = {
   ],
 };
 
+const fixedRoom = {
+  title: '4人の飲み会',
+  payerName: 'あき',
+  participantCount: 4,
+  calculationMode: 'fixed-participants',
+  total: 3_000,
+  items: [
+    { id: 'beer', name: 'ビール', amount: 1_800, quantity: 3, splitMode: 'quantity' },
+    { id: 'food', name: '唐揚げ', amount: 1_200, quantity: 1, splitMode: 'equal' },
+  ],
+};
+
 async function start(dbPath = ':memory:') {
   const application = await createApp({ dbPath });
   const server = application.app.listen(0, '127.0.0.1');
@@ -870,4 +882,282 @@ test('quantity selections and split modes survive a server restart', async (cont
   assert.equal(done.status, 200);
   assert.equal(done.data.selectionQuantities?.[identity.memberId].drink, 3);
   assert.equal(calculateSettlement(done.data).ready, true);
+});
+
+test('fixed participant calculation requires its initial count and preserves legacy rooms', async (context) => {
+  const api = await start();
+  context.after(() => api.stop());
+  for (const input of [
+    { ...fixedRoom, participantCount: undefined },
+    { ...fixedRoom, participantCount: null },
+    { ...fixedRoom, calculationMode: 'unknown' },
+  ]) {
+    assert.equal((await api.request('POST', '/api/rooms', input)).status, 400);
+  }
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', fixedRoom);
+  assert.equal(created.status, 201);
+  assert.equal(created.data.room.calculationMode, 'fixed-participants');
+  assert.equal(created.data.room.participantCount, 4);
+  const legacy = await api.request<SessionResponse>('POST', '/api/rooms', {
+    ...initialRoom,
+    participantCount: 4,
+  });
+  assert.equal(legacy.status, 201);
+  assert.equal(Object.hasOwn(legacy.data.room, 'calculationMode'), false);
+  assert.equal(calculateSettlement(legacy.data.room).memberAmounts[legacy.data.room.payerId], 0);
+});
+
+test('fixed participant amounts stay 900 yen as other people join, change, and leave', async (context) => {
+  const api = await start();
+  context.after(() => api.stop());
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', fixedRoom);
+  assert.equal(created.status, 201);
+  const { room, identity: payer } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  const select = async (token: string, quantity: number, done = true) => {
+    const response = await api.request(
+      'PUT',
+      `${route}/selection`,
+      { itemIds: quantity ? ['beer'] : [], quantities: quantity ? { beer: quantity } : {}, done },
+      token,
+    );
+    assert.equal(response.status, 200);
+    return response.data;
+  };
+  const expectPayerAmount = (current: Room) => {
+    const settlement = calculateSettlement(current);
+    assert.equal(settlement.memberAmounts[payer.memberId], 900);
+    assert.equal(
+      Object.values(settlement.memberAmounts).reduce((sum, amount) => sum + amount, 0) +
+        settlement.unassignedAmount,
+      3_000,
+    );
+    return settlement;
+  };
+  const selected = await select(payer.token, 1);
+  const initial = expectPayerAmount(selected);
+  assert.equal(initial.pendingParticipantAmount, 900);
+  assert.equal(initial.ready, false);
+  const earlyClose = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: selected.version },
+    payer.token,
+  );
+  assert.equal(earlyClose.status, 409);
+  const joined = await api.request<SessionResponse>('POST', `${route}/members`, { name: 'はる' });
+  assert.equal(joined.status, 201);
+  expectPayerAmount(joined.data.room);
+  const other = joined.data.identity;
+  expectPayerAmount(await select(other.token, 2));
+  expectPayerAmount(await select(other.token, 0, false));
+  expectPayerAmount(await select(other.token, 1));
+  const accidental = await api.request<SessionResponse>('POST', `${route}/members`, {
+    name: 'まちがえて参加',
+  });
+  assert.equal(accidental.status, 201);
+  expectPayerAmount(await select(accidental.data.identity.token, 1));
+  const removed = await api.request(
+    'DELETE',
+    `${route}/members/${accidental.data.identity.memberId}`,
+    {},
+    payer.token,
+  );
+  assert.equal(removed.status, 200);
+  expectPayerAmount(removed.data);
+  assert.equal(removed.data.participantCount, 4);
+  assert.equal(calculateSettlement(removed.data).pendingParticipantAmount, 600);
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: [], done: true },
+        accidental.data.identity.token,
+      )
+    ).status,
+    403,
+  );
+  const third = await api.request<SessionResponse>('POST', `${route}/members`, { name: 'なつ' });
+  const fourth = await api.request<SessionResponse>('POST', `${route}/members`, { name: 'ふゆ' });
+  assert.equal(third.status, 201);
+  assert.equal(fourth.status, 201);
+  await select(third.data.identity.token, 0);
+  const incomplete = await select(fourth.data.identity.token, 0);
+  expectPayerAmount(incomplete);
+  assert.equal(calculateSettlement(incomplete).ready, false);
+  assert.equal(
+    (
+      await api.request(
+        'POST',
+        `${route}/close`,
+        { closed: true, version: incomplete.version },
+        payer.token,
+      )
+    ).status,
+    409,
+  );
+  const ready = await select(third.data.identity.token, 1);
+  const settlement = expectPayerAmount(ready);
+  assert.equal(settlement.ready, true);
+  assert.equal(settlement.pendingParticipantAmount, 0);
+  assert.equal(settlement.unassignedAmount, 0);
+  assert.deepEqual(settlement.memberAmounts, {
+    [payer.memberId]: 900,
+    [other.memberId]: 900,
+    [third.data.identity.memberId]: 900,
+    [fourth.data.identity.memberId]: 300,
+  });
+  assert.equal(
+    (
+      await api.request(
+        'POST',
+        `${route}/close`,
+        { closed: true, version: ready.version },
+        other.token,
+      )
+    ).status,
+    403,
+  );
+  const closed = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: ready.version },
+    payer.token,
+  );
+  assert.equal(closed.status, 200);
+  assert.equal(closed.data.closed, true);
+  expectPayerAmount(closed.data);
+  assert.equal(
+    (await api.request('PUT', `${route}/selection`, { itemIds: [], done: false }, other.token))
+      .status,
+    409,
+  );
+  const paid = await api.request(
+    'PUT',
+    `${route}/paid`,
+    { memberId: other.memberId, paid: true },
+    payer.token,
+  );
+  assert.equal(paid.status, 200);
+  assert.deepEqual(paid.data.paidMemberIds, [other.memberId]);
+  const reopened = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: false, version: paid.data.version },
+    payer.token,
+  );
+  assert.equal(reopened.status, 200);
+  assert.deepEqual(reopened.data.paidMemberIds, []);
+  expectPayerAmount(reopened.data);
+  expectPayerAmount(await select(other.token, 0, false));
+});
+
+test('fixed rooms reject automatic shared selections without changing room state', async (context) => {
+  const api = await start();
+  context.after(() => api.stop());
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', {
+    ...fixedRoom,
+    items: [...fixedRoom.items, { id: 'legacy-shared', name: '枝豆', amount: 300 }],
+  });
+  assert.equal(created.status, 201);
+  const { room, identity } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  for (const itemIds of [['food'], ['legacy-shared'], ['beer', 'food']]) {
+    const invalid = await api.request<{ error: string }>(
+      'PUT',
+      `${route}/selection`,
+      { itemIds, done: true },
+      identity.token,
+    );
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.data.error, /自動で含まれます/);
+  }
+  assert.deepEqual((await api.request('GET', route)).data, room);
+});
+
+test('fixed room count, mode, selected quantities, and rounding survive restart', async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'receipt-split-fixed-test-'));
+  const dbPath = path.join(directory, 'rooms.sqlite');
+  let api = await start(dbPath);
+  context.after(async () => {
+    await api.stop();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', {
+    ...fixedRoom,
+    participantCount: 2,
+    total: 3_001,
+  });
+  assert.equal(created.status, 201);
+  const { room, identity } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  const selected = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['beer'], quantities: { beer: 1 }, done: true },
+    identity.token,
+  );
+  assert.equal(selected.status, 200);
+  const before = calculateSettlement(selected.data);
+  assert.equal(before.roundingAmount, 1);
+  assert.equal(before.memberAmounts[identity.memberId], 1_201);
+  await api.stop();
+  api = await start(dbPath);
+  const loaded = await api.request('GET', route);
+  assert.deepEqual(loaded.data, selected.data);
+  assert.equal(loaded.data.calculationMode, 'fixed-participants');
+  const other = await api.request<SessionResponse>('POST', `${route}/members`, { name: 'はる' });
+  const complete = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['beer'], quantities: { beer: 2 }, done: true },
+    other.data.identity.token,
+  );
+  assert.equal(complete.status, 200);
+  const settlement = calculateSettlement(complete.data);
+  assert.deepEqual(settlement.memberAmounts, {
+    [identity.memberId]: 1_201,
+    [other.data.identity.memberId]: 1_800,
+  });
+  const closed = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: complete.data.version },
+    identity.token,
+  );
+  assert.equal(closed.status, 200);
+  assert.equal(closed.data.closed, true);
+});
+
+test('fixed shared-only receipt completes without selecting a shared item', async (context) => {
+  const api = await start();
+  context.after(() => api.stop());
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', {
+    ...fixedRoom,
+    participantCount: 1,
+    total: 1_200,
+    items: [fixedRoom.items[1]],
+  });
+  assert.equal(created.status, 201);
+  const { room, identity } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  const complete = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: [], done: true },
+    identity.token,
+  );
+  assert.equal(complete.status, 200);
+  const settlement = calculateSettlement(complete.data);
+  assert.equal(settlement.memberAmounts[identity.memberId], 1_200);
+  assert.equal(settlement.ready, true);
+  const closed = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: complete.data.version },
+    identity.token,
+  );
+  assert.equal(closed.status, 200);
+  assert.equal(closed.data.closed, true);
 });

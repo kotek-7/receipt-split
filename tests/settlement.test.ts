@@ -39,6 +39,8 @@ test('separate orders and zero selections include every member', () => {
     }),
   );
   assert.deepEqual(result.memberAmounts, { a: 1_000, b: 500, c: 0 });
+  assert.equal(result.roundingAmount, 0);
+  assert.equal(result.pendingParticipantAmount, 0);
   assert.equal(result.ready, true);
 });
 
@@ -333,4 +335,227 @@ test('tax, discounts, and rounding preserve totals across quantity and equal ite
     assert.equal(result.itemAllocations[0].unassignedQuantity, 1);
     assert.equal(result.ready, false);
   }
+});
+
+function fixedRoom(overrides: Partial<Room> = {}): Room {
+  return room({
+    calculationMode: 'fixed-participants',
+    participantCount: 4,
+    items: [
+      { id: 'beer', name: '生ビール', amount: 1_800, quantity: 3, splitMode: 'quantity' },
+      { id: 'food', name: '唐揚げ', amount: 1_200, quantity: 1, splitMode: 'equal' },
+    ],
+    total: 3_000,
+    members: [
+      ...room().members,
+      { id: 'c', name: 'ちえ', done: true },
+      { id: 'd', name: 'だい', done: true },
+    ],
+    selections: { a: ['beer'], b: ['beer'], c: ['beer'], d: [] },
+    selectionQuantities: { a: { beer: 1 }, b: { beer: 1 }, c: { beer: 1 } },
+    ...overrides,
+  });
+}
+
+function fixedSettlement(state: Room) {
+  const result = calculateSettlement(state);
+  for (const item of result.itemAllocations) {
+    assert.equal(
+      Object.values(item.memberAmounts).reduce((sum, amount) => sum + amount, 0) +
+        item.unassignedAmount +
+        item.roundingAmount!,
+      item.amount,
+      `item ${item.itemId} must retain every yen`,
+    );
+  }
+  assert.equal(
+    Object.values(result.memberAmounts).reduce((sum, amount) => sum + amount, 0) +
+      result.unassignedAmount,
+    state.total,
+    'the receipt total must include pending shares, unclaimed units, and payer rounding once',
+  );
+  assert.equal(
+    result.roundingAmount,
+    result.itemAllocations.reduce((sum, item) => sum + item.roundingAmount!, 0),
+  );
+  for (const member of state.members) {
+    assert.equal(
+      result.memberAmounts[member.id],
+      result.itemAllocations.reduce((sum, item) => sum + (item.memberAmounts[member.id] ?? 0), 0) +
+        (member.id === state.payerId ? result.roundingAmount : 0),
+      'only the payer receives the separately reported rounding amount',
+    );
+  }
+  return result;
+}
+
+test('fixed participants pay 600 yen for one beer plus 300 yen for food shared by four', () => {
+  const result = fixedSettlement(fixedRoom());
+  assert.deepEqual(result.memberAmounts, { a: 900, b: 900, c: 900, d: 300 });
+  assert.deepEqual(result.itemAllocations[1].memberAmounts, { a: 300, b: 300, c: 300, d: 300 });
+  assert.equal(result.unassignedAmount, 0);
+  assert.equal(result.pendingParticipantAmount, 0);
+  assert.equal(result.roundingAmount, 0);
+  assert.equal(result.ready, true);
+});
+
+test('fixed prices and payer rounding survive other members joining, selecting, and leaving', () => {
+  const state = fixedRoom({
+    items: [
+      { id: 'beer', name: '生ビール', amount: 101, quantity: 3, splitMode: 'quantity' },
+      { id: 'food', name: '唐揚げ', amount: 103, splitMode: 'equal' },
+    ],
+    total: 204,
+    members: room().members,
+    selections: { a: ['beer'], b: ['beer'] },
+    selectionQuantities: { a: { beer: 1 }, b: { beer: 1 } },
+  });
+  const initial = fixedSettlement(state);
+  assert.deepEqual(initial.memberAmounts, { a: 63, b: 58 });
+  assert.equal(initial.roundingAmount, 5);
+  assert.equal(initial.pendingParticipantAmount, 50);
+  assert.equal(initial.unassignedAmount, 83);
+  const unchanged = () => {
+    const result = fixedSettlement(state);
+    assert.equal(result.memberAmounts.a, initial.memberAmounts.a);
+    assert.equal(result.memberAmounts.b, initial.memberAmounts.b);
+    assert.equal(result.roundingAmount, initial.roundingAmount);
+    return result;
+  };
+  state.members.push({ id: 'c', name: 'ちえ', done: false });
+  state.selections.c = [];
+  assert.equal(unchanged().pendingParticipantAmount, 25);
+  state.selections.c = ['beer'];
+  state.selectionQuantities!.c = { beer: 1 };
+  assert.equal(unchanged().unassignedAmount, 25);
+  state.members[2].done = true;
+  state.members.push({ id: 'd', name: 'だい', done: true });
+  state.selections.d = [];
+  assert.equal(unchanged().ready, true);
+  state.members = state.members.filter((member) => member.id !== 'c');
+  delete state.selections.c;
+  delete state.selectionQuantities!.c;
+  const removed = unchanged();
+  assert.equal(removed.pendingParticipantAmount, 25);
+  assert.equal(removed.unassignedAmount, 58);
+  assert.equal(removed.ready, false);
+  state.members.reverse();
+  unchanged();
+});
+
+test('fixed shared-only receipts need no selections but wait for the original count and completion', () => {
+  const state = fixedRoom({
+    participantCount: 3,
+    items: [{ id: 'food', name: '唐揚げ', amount: 101, quantity: 5, splitMode: 'equal' }],
+    total: 101,
+    members: [room().members[0]],
+    selections: { a: [] },
+    selectionQuantities: {},
+  });
+  const pending = fixedSettlement(state);
+  assert.deepEqual(pending.memberAmounts, { a: 35 });
+  assert.equal(pending.itemAllocations[0].unassignedQuantity, 0);
+  assert.equal(pending.unassignedCount, 0);
+  assert.equal(pending.assignedCount, 1);
+  assert.equal(pending.pendingParticipantAmount, 66);
+  assert.equal(pending.unassignedAmount, 66);
+  assert.equal(pending.ready, false);
+  state.members.push({ id: 'b', name: 'ぼん', done: false }, { id: 'c', name: 'ちえ', done: true });
+  state.selections.b = [];
+  state.selections.c = [];
+  const unfinished = fixedSettlement(state);
+  assert.deepEqual(unfinished.memberAmounts, { a: 35, b: 33, c: 33 });
+  assert.equal(unfinished.pendingParticipantAmount, 0);
+  assert.equal(unfinished.ready, false);
+  state.members[1].done = true;
+  assert.equal(fixedSettlement(state).ready, true);
+  // Old/stale shared selections never change the automatic per-person share.
+  state.selections.b = ['food'];
+  state.selectionQuantities!.b = { food: 5 };
+  assert.deepEqual(fixedSettlement(state).memberAmounts, unfinished.memberAmounts);
+});
+
+test('one fixed participant pays the full receipt including all shared food and rounding', () => {
+  const result = fixedSettlement(
+    fixedRoom({
+      participantCount: 1,
+      items: [
+        { id: 'beer', name: '生ビール', amount: 100, quantity: 3, splitMode: 'quantity' },
+        { id: 'food', name: '唐揚げ', amount: 101, splitMode: 'equal' },
+      ],
+      total: 201,
+      members: [room().members[0]],
+      selections: { a: ['beer'] },
+      selectionQuantities: { a: { beer: 3 } },
+    }),
+  );
+  assert.deepEqual(result.memberAmounts, { a: 201 });
+  assert.equal(result.roundingAmount, 1);
+  assert.equal(result.unassignedAmount, 0);
+  assert.equal(result.ready, true);
+});
+
+test('fixed units block completion even when their price rounds to zero', () => {
+  const state = fixedRoom({
+    participantCount: 2,
+    items: [{ id: 'beer', name: '生ビール', amount: 100, quantity: 2, splitMode: 'quantity' }],
+    total: 1,
+    members: room().members,
+    selections: { a: ['beer'], b: [] },
+    selectionQuantities: { a: { beer: 1 } },
+  });
+  const pending = fixedSettlement(state);
+  assert.deepEqual(pending.memberAmounts, { a: 1, b: 0 });
+  assert.equal(pending.roundingAmount, 1);
+  assert.equal(pending.unassignedAmount, 0);
+  assert.equal(pending.unassignedCount, 1);
+  assert.equal(pending.itemAllocations[0].unassignedQuantity, 1);
+  assert.equal(pending.ready, false);
+  state.selections.b = ['beer'];
+  state.selectionQuantities!.b = { beer: 1 };
+  assert.equal(fixedSettlement(state).ready, true);
+});
+
+test('fixed shares preserve tax, discounts, unclaimed units, pending participants, and every rounding yen', () => {
+  for (let total = 1; total <= 257; total++) {
+    const result = fixedSettlement(
+      fixedRoom({
+        items: [
+          { id: 'beer', name: '生ビール', amount: 101, quantity: 3, splitMode: 'quantity' },
+          { id: 'food', name: '唐揚げ', amount: 103, splitMode: 'equal' },
+        ],
+        total,
+        members: room().members,
+        selections: { a: ['beer'], b: ['beer'] },
+        selectionQuantities: { a: { beer: 1 }, b: { beer: 1 } },
+      }),
+    );
+    assert.equal(result.itemAllocations[0].unassignedQuantity, 1);
+    assert.equal(result.unassignedCount, 1);
+    assert.equal(result.ready, false);
+    assert.ok(
+      Object.values(result.memberAmounts).every(
+        (amount) => Number.isInteger(amount) && amount >= 0,
+      ),
+    );
+  }
+});
+
+test('fixed calculations cap corrupt quantity claims and excess participants to conserve totals', () => {
+  const result = fixedSettlement(
+    fixedRoom({
+      participantCount: 2,
+      items: [
+        { id: 'beer', name: '生ビール', amount: 101, quantity: 3, splitMode: 'quantity' },
+        { id: 'food', name: '唐揚げ', amount: 103, splitMode: 'equal' },
+      ],
+      total: 204,
+      selectionQuantities: { a: { beer: 9 }, b: { beer: 9 }, c: { beer: 9 } },
+    }),
+  );
+  assert.deepEqual(result.itemAllocations[0].memberAmounts, { a: 99 });
+  assert.deepEqual(result.itemAllocations[1].memberAmounts, { a: 51, b: 51 });
+  assert.deepEqual(result.memberAmounts, { a: 153, b: 51, c: 0, d: 0 });
+  assert.equal(result.roundingAmount, 3);
+  assert.equal(result.unassignedAmount, 0);
 });
