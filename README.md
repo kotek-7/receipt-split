@@ -119,7 +119,7 @@ npm run test:cloud:local
 
 一時的な保存先でWranglerを起動し、既存のローカルデータや公開環境に会計を作らずに検証します。
 
-## CI
+## CI / CD
 
 [GitHub Actions](https://github.com/kotek-7/receipt-split/actions/workflows/ci.yml)で、push・Pull Request・手動実行時にNode.js 24で以下を確認します。
 
@@ -130,6 +130,19 @@ npm run test:cloud:local
 - 一時的なCloudflareローカル環境でのAPI操作テスト
 
 CIにCloudflareの認証情報は不要です。
+
+すべての検証が成功すると、既定ブランチ（現在は`codex/receipt-split`）へのpushをCloudflare本番環境に自動デプロイします。PRやほかのブランチからは公開しません。既定ブランチを選んで手動実行した場合も、同じ検証とデプロイを行います。
+
+デプロイは1件ずつ実行します。開始時に既定ブランチの最新コミットを確認し、古いコミットの再実行によって本番が巻き戻らないようにします。公開後はトップページと`/api/health`を確認します。会計を作成するAPI操作テストはローカル環境で実行します。
+
+自動デプロイの初回設定:
+
+1. [CloudflareのAPIトークン画面](https://dash.cloudflare.com/profile/api-tokens)で、`Edit Cloudflare Workers`テンプレートを使い、対象のアカウントと`kotek7.com`ゾーンに権限を限定したトークンを作成します。必要な権限は[Cloudflare公式のCI/CD手順](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)を参照してください。
+2. [リポジトリのActions Secrets](https://github.com/kotek-7/receipt-split/settings/secrets/actions)に`CLOUDFLARE_API_TOKEN`を登録します。トークンをコードやコミットに含めないでください。
+3. [Actions Variables](https://github.com/kotek-7/receipt-split/settings/variables/actions)に、公開先アカウントのIDを`CLOUDFLARE_ACCOUNT_ID`として登録します。
+4. Actionsの`CI / CD`から`Run workflow`で既定ブランチを実行します。
+
+トークンまたはアカウントIDが未設定の場合、検証ジョブは実行され、デプロイジョブに設定不足のエラーが表示されます。設定後はその実行を再実行できます。デプロイ設定は`wrangler.jsonc`と共通です。
 
 ## 手動デプロイ
 

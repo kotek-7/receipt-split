@@ -41,3 +41,75 @@ jobs:
         run: npm run build
       - name: Test local Cloudflare runtime
         run: npm run test:cloud:local
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: checks
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://reciwake.kotek7.com
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Skip superseded commits
+        id: latest
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          latest=$(git ls-remote origin "refs/heads/$DEFAULT_BRANCH" | cut -f1)
+          if [ -z "$latest" ]; then
+            echo '::error::Could not read the default branch HEAD.'
+            exit 1
+          fi
+          if [ "$latest" = "$GITHUB_SHA" ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+            echo 'A newer commit exists. Skipping this deployment.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Check deployment credentials
+        if: steps.latest.outputs.current == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo '::error::Set the CLOUDFLARE_API_TOKEN repository secret and CLOUDFLARE_ACCOUNT_ID repository variable before deploying.'
+            exit 1
+          fi
+      - name: Set up Node.js
+        if: steps.latest.outputs.current == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        if: steps.latest.outputs.current == 'true'
+        run: npm ci
+      - name: Build frontend
+        if: steps.latest.outputs.current == 'true'
+        run: npm run build
+      - name: Deploy Worker and static assets
+        if: steps.latest.outputs.current == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy
+      - name: Check production health
+        if: steps.latest.outputs.current == 'true'
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 https://reciwake.kotek7.com/api/health \
+            | node --input-type=module -e "import { readFileSync } from 'node:fs'; import assert from 'node:assert/strict'; assert.equal(JSON.parse(readFileSync(0, 'utf8')).ok, true);"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 --output /dev/null https://reciwake.kotek7.com/
