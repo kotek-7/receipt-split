@@ -189,7 +189,11 @@ export default function App() {
               <h1>
                 飲み会の会計を、
                 <br />
-                <span>飲んだ分、食べた分。</span>
+                <span>
+                  <span className="hero-phrase">飲んだ分、</span>
+                  <wbr />
+                  <span className="hero-phrase">食べた分。</span>
+                </span>
               </h1>
               <p className="home-intro">
                 家飲みの食材・お酒の買い出しも、居酒屋の注文も。
@@ -451,7 +455,7 @@ function Editor({
         onSubmit={submit}
         className={`editor-layout ${photo || draft.rawText ? 'with-preview' : ''}`}
       >
-        <section className="panel editor-panel">
+        <section className="panel editor-panel receipt-edge">
           <div className="form-row">
             <label>
               飲み会の名前
@@ -943,7 +947,7 @@ function RoomPage({
       )}
       {member && tab === 'items' ? (
         <div className="room-grid">
-          <section className="panel item-selection">
+          <section className="panel item-selection receipt-edge">
             <div className="selection-heading">
               <div>
                 <h2>{room.closed ? 'あなたが選んだもの' : '飲んだ・食べたものを選ぶ'}</h2>
@@ -980,7 +984,7 @@ function RoomPage({
               <p>立て替えた人も、飲んだもの・食べたものを選びます。</p>
             </div>
           </section>
-          <aside className="amount-card">
+          <aside className="amount-card receipt-edge">
             <h2>{isOwner ? 'あなたの分' : `${payer.name}さんに返す金額`}</h2>
             <div className="large-amount">{yen(myAmount)}</div>
             <span className="amount-status">
@@ -1033,7 +1037,7 @@ function RoomPage({
           </aside>
         </div>
       ) : (
-        <section className="panel settlement-panel">
+        <section className="panel settlement-panel receipt-edge">
           <div className="selection-heading">
             <div>
               <h2>{room.closed ? '返す相手と金額' : 'みんなの金額（仮）'}</h2>

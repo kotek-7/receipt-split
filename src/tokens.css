@@ -1,5 +1,5 @@
 :root {
-  /* Palette: white paper, ink text, cobalt actions, and neutral supporting surfaces. */
+  /* Palette: white paper, ink text, vermilion actions, and neutral supporting surfaces. */
   --color-page: #ffffff;
   --color-surface: #ffffff;
   --color-surface-subtle: #f7f8fa;
@@ -7,33 +7,33 @@
   --color-text: #17191e;
   --color-text-secondary: #3c424d;
   --color-text-muted: #59616f;
-  --color-action: #174ae4;
-  --color-action-hover: #1037b0;
+  --color-action: #bd3425;
+  --color-action-hover: #94271c;
   --color-border: #c5cad3;
   --color-control-border: #7b8594;
   --color-border-active: var(--color-action);
-  --color-selected: #edf2ff;
-  --color-selected-strong: #dbe5ff;
+  --color-selected: #fff0eb;
+  --color-selected-strong: #ffdfd6;
   --color-track: #dde1e8;
   --color-illustration: var(--color-action);
   --color-illustration-line: #7b8594;
-  --color-avatar: #25324b;
+  --color-avatar: #303030;
   --color-avatar-text: #ffffff;
   --color-avatar-1: var(--color-action);
   --color-avatar-1-text: #ffffff;
-  --color-avatar-2: #475569;
+  --color-avatar-2: #545454;
   --color-avatar-2-text: #ffffff;
-  --color-avatar-3: #dde3ee;
-  --color-avatar-3-text: #25324b;
-  --color-avatar-4: #e5e7eb;
-  --color-avatar-4-text: #374151;
+  --color-avatar-3: #e2e2e2;
+  --color-avatar-3-text: #303030;
+  --color-avatar-4: #e8e8e8;
+  --color-avatar-4-text: #353535;
   --color-warning: #805200;
   --color-warning-surface: #fff4cc;
   --color-danger: #b42318;
   --color-danger-surface: #fff1f0;
   --color-danger-border: #e5a5a0;
   --color-focus: var(--color-action);
-  --color-focus-soft: #174ae41f;
+  --color-focus-soft: #bd34251f;
   --color-backdrop: #17191e66;
   --color-camera-backdrop: #17191eb8;
   --color-camera: #17191e;

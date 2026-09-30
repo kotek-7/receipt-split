@@ -236,6 +236,9 @@ input::-webkit-outer-spin-button {
   transform: rotate(-1deg);
   pointer-events: none;
 }
+.hero-phrase {
+  white-space: nowrap;
+}
 .mini-receipt {
   max-width: 351px;
   margin: var(--space-8) 0 0 var(--space-1);
@@ -258,8 +261,8 @@ input::-webkit-outer-spin-button {
   left: 0;
   right: 0;
   background:
-    linear-gradient(135deg, var(--color-surface) 25%, transparent 25%) -5px 0,
-    linear-gradient(225deg, var(--color-surface) 25%, transparent 25%) -5px 0;
+    linear-gradient(135deg, var(--receipt-paper, var(--color-surface)) 25%, transparent 25%) -5px 0,
+    linear-gradient(225deg, var(--receipt-paper, var(--color-surface)) 25%, transparent 25%) -5px 0;
   background-size: 10px 10px;
   filter: drop-shadow(0 1px 0 var(--color-border));
   pointer-events: none;
@@ -584,6 +587,15 @@ input::-webkit-outer-spin-button {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
   overflow: hidden;
+}
+.panel.receipt-edge,
+.amount-card.receipt-edge {
+  overflow: visible;
+  border-bottom-left-radius: var(--radius-small);
+  border-bottom-right-radius: var(--radius-small);
+}
+.item-selection.receipt-edge > :last-child {
+  border-radius: 0 0 var(--radius-small) var(--radius-small);
 }
 .editor-panel {
   padding: var(--space-7);
@@ -1183,6 +1195,7 @@ button.selectable-item:not(:disabled):hover {
   background: var(--color-page);
 }
 .amount-card {
+  --receipt-paper: var(--color-soft);
   border-radius: var(--radius-panel);
   border: 1px solid var(--color-border);
   background: var(--color-soft);
@@ -1218,7 +1231,7 @@ button.selectable-item:not(:disabled):hover {
   color: var(--color-text-muted);
   padding: var(--space-6) 0 var(--space-5);
   margin-top: var(--space-5);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px dashed var(--color-border);
 }
 .amount-details strong {
   font-weight: 500;
@@ -1236,6 +1249,9 @@ button.selectable-item:not(:disabled):hover {
   font-size: var(--font-caption);
   margin-top: var(--space-4);
 }
+.settlement-panel > .selection-heading {
+  border-bottom: 1px dashed var(--color-border);
+}
 .settlement-panel {
   padding-bottom: var(--space-4);
 }
@@ -1252,6 +1268,9 @@ button.selectable-item:not(:disabled):hover {
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--color-border);
+}
+.settlement-list > .settlement-person:first-child {
+  border-top: 0;
 }
 .settlement-person-name {
   min-width: 0;
@@ -1845,7 +1864,7 @@ button.selectable-item:not(:disabled):hover {
     gap: var(--space-5);
   }
   .amount-card {
-    position: static;
+    position: relative;
     margin-top: 0;
     padding: var(--space-6);
   }
