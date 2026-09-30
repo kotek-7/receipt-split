@@ -119,6 +119,21 @@ test('all participants must finish and zero-yen rounded rows still require selec
   assert.equal(result.ready, false);
 });
 
+test('all expected participants must join and finish before settlement is ready', () => {
+  const pending = room({ participantCount: 3 });
+  const beforeJoin = calculateSettlement(pending);
+  assert.equal(beforeJoin.unassignedCount, 0);
+  assert.equal(beforeJoin.ready, false);
+  assert.deepEqual(beforeJoin.memberAmounts, { a: 1_000, b: 500 });
+  pending.members.push({ id: 'c', name: 'ちえ', done: false });
+  assert.equal(calculateSettlement(pending).ready, false);
+  pending.members[2].done = true;
+  assert.equal(calculateSettlement(pending).ready, true);
+  pending.members.pop();
+  assert.equal(calculateSettlement(pending).ready, false);
+  assert.equal(calculateSettlement(room()).ready, true);
+});
+
 test('combined row rounding and shared rounding conserve all yen for varied receipts', () => {
   for (let total = 1; total <= 127; total++) {
     const result = calculateSettlement(

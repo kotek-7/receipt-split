@@ -55,9 +55,15 @@ function mixedRoom(): Room {
 }
 
 type SelectionBody = { itemIds: string[]; quantities: Record<string, number>; done: boolean };
-type CreationBody = { title: string; payerName: string; items: ReceiptItem[]; total: number };
+type CreationBody = {
+  title: string;
+  payerName: string;
+  participantCount: number;
+  items: ReceiptItem[];
+  total: number;
+};
 
-async function mountApp(t: TestContext, initialRoom?: Room) {
+async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
   const window = new Window({
     url: `https://reciwake.example/${initialRoom ? 'r/test-room' : ''}`,
   });
@@ -66,7 +72,7 @@ async function mountApp(t: TestContext, initialRoom?: Room) {
   const identity = { memberId: 'a', token: 'test-session-token' };
   const selections: SelectionBody[] = [];
   const creations: CreationBody[] = [];
-  if (initialRoom)
+  if (initialRoom && signedIn)
     window.localStorage.setItem('receipt-split:session:test-room', JSON.stringify(identity));
   const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
     const path = String(input);
@@ -76,6 +82,7 @@ async function mountApp(t: TestContext, initialRoom?: Room) {
       room = {
         ...room,
         title: body.title,
+        participantCount: body.participantCount,
         total: body.total,
         items: body.items,
         members: [{ id: 'a', name: body.payerName, done: false }],
@@ -184,6 +191,10 @@ test('editor submits purchased counts and chosen split modes without multiplying
   await app.click('手入力ではじめる');
   await app.input('input[placeholder="例：週末のごはん"]', '夕食');
   await app.input('input[placeholder="例：あおい"]', 'あき');
+  const participantCount = await app.input('#participant-count', '');
+  assert.equal(participantCount.value, '');
+  assert.equal(participantCount.validity.valueMissing, true);
+  await app.input('#participant-count', '3');
   await app.input('input[aria-label="品目1の名前"]', 'ドリンク');
   await app.input('input[aria-label="品目1の金額"]', '1200');
   const quantity = await app.input('input[aria-label="品目1の購入数"]', '');
@@ -215,6 +226,9 @@ test('editor submits purchased counts and chosen split modes without multiplying
     ],
   );
   assert.equal(app.creations[0].total, 2100);
+  assert.equal(app.creations[0].participantCount, 3);
+  assert.match(app.host.textContent, /1 \/ 3人が参加/);
+  assert.match(app.host.textContent, /0 \/ 3人が入力完了/);
   assert.match(app.host.textContent, /全2個 · 個数で分ける/);
   assert.match(app.host.textContent, /全2個 · 均等に割り勘/);
 });
@@ -286,4 +300,42 @@ test('summary exposes the remaining units and their unpaid amount before allowin
   assert.match(unassigned.textContent, /ドリンク（あと1個）/);
   assert.match(unassigned.textContent, /￥300/);
   assert.equal(app.button('この金額で精算を確定').disabled, true);
+});
+
+test('creation requires an integer participant count within the supported range', async (t) => {
+  const app = await mountApp(t);
+  await app.click('サンプルで試す');
+  await app.input('input[placeholder="例：あおい"]', 'あき');
+  for (const value of ['', '0', '1.5', '101']) {
+    const input = await app.input('#participant-count', value);
+    assert.equal(input.checkValidity(), false, `invalid participant count ${value}`);
+    await app.click('共有リンクを作る');
+    assert.equal(app.creations.length, 0);
+  }
+  for (const value of ['1', '100']) {
+    const input = await app.input('#participant-count', value);
+    assert.equal(input.checkValidity(), true);
+  }
+});
+
+test('summary waits for missing participants even when current members finish every item', async (t) => {
+  const room = mixedRoom();
+  room.participantCount = 3;
+  room.members[0].done = true;
+  room.selections.a = ['drink', 'pizza'];
+  room.selectionQuantities!.a = { drink: 2 };
+  const app = await mountApp(t, room);
+  assert.match(app.host.textContent, /2 \/ 3人が入力完了/);
+  await app.click('みんなの精算');
+  assert.match(app.host.textContent, /あと1人の参加を待っています/);
+  assert.equal(app.button('この金額で精算を確定').disabled, true);
+});
+
+test('a full room explains how to return instead of offering another participant slot', async (t) => {
+  const room = mixedRoom();
+  room.participantCount = 2;
+  const app = await mountApp(t, room, false);
+  assert.match(app.host.textContent, /全員が参加しています/);
+  assert.match(app.host.textContent, /参加したときのブラウザから/);
+  assert.equal(app.host.querySelector('#join-name'), null);
 });

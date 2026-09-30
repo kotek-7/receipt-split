@@ -83,6 +83,7 @@ export function calculateSettlement(room: Room): Settlement {
     assignedCount: room.items.length - unassignedCount,
     ready:
       room.members.length > 0 &&
+      room.members.length >= (room.participantCount ?? 0) &&
       room.members.every((member) => member.done) &&
       unassignedCount === 0,
   };

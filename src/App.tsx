@@ -410,7 +410,7 @@ export default function App() {
           <ol className="help-list">
             <li>
               <strong>立て替えた人がレシートを撮影</strong>
-              <p>読み取った品目・金額と、実際の支払総額を確認します。</p>
+              <p>読み取った品目・金額と支払総額を確認し、自分を含む割り勘人数を入力します。</p>
             </li>
             <li>
               <strong>リンクをみんなに共有</strong>
@@ -457,6 +457,7 @@ function Editor({
 }) {
   const [title, setTitle] = useState(draft.title);
   const [payerName, setPayerName] = useState('');
+  const [participantCount, setParticipantCount] = useState('2');
   const [items, setItems] = useState(draft.items);
   const [total, setTotal] = useState(draft.total);
   const [totalEdited, setTotalEdited] = useState(false);
@@ -485,6 +486,7 @@ function Editor({
       const result = await request<SessionResponse>('/rooms', {
         title: title.trim(),
         payerName: payerName.trim(),
+        participantCount: Number(participantCount),
         items: items.map((i) => ({ ...i, name: i.name.trim() })),
         total,
       });
@@ -530,6 +532,27 @@ function Editor({
                 onChange={(e) => setPayerName(e.target.value)}
               />
             </label>
+          </div>
+          <div className="participant-count-field">
+            <label htmlFor="participant-count">割り勘人数</label>
+            <div>
+              <input
+                id="participant-count"
+                type="number"
+                required
+                min="1"
+                max="100"
+                step="1"
+                inputMode="numeric"
+                aria-describedby="participant-count-help"
+                value={participantCount}
+                onChange={(e) => setParticipantCount(e.target.value)}
+              />
+              <span>人</span>
+            </div>
+            <p id="participant-count-help" className="muted small">
+              立て替えた人（あなた）を含めた人数です。
+            </p>
           </div>
           <div className="item-editor-header">
             <h2>
@@ -846,6 +869,9 @@ function RoomPage({
   const selected = room.selections[member?.id || ''] || [];
   const myAmount = settlement.memberAmounts[member?.id || ''] || 0;
   const doneCount = room.members.filter((m) => m.done).length;
+  const participantCount = room.participantCount ?? room.members.length;
+  const missingParticipants = Math.max(0, participantCount - room.members.length);
+  const isFull = room.participantCount !== undefined && missingParticipants === 0;
   const selectionData = (itemIds = selected, done = false) => ({
     itemIds,
     done,
@@ -894,6 +920,8 @@ function RoomPage({
             <span className="dot-separator">·</span>
             {room.items.length}品目<span className="dot-separator">·</span>
             {yen(room.total)}
+            <span className="dot-separator">·</span>
+            {room.members.length} / {participantCount}人が参加
           </p>
         </div>
         <button className="button secondary share-button" onClick={() => setSharing(true)}>
@@ -908,13 +936,21 @@ function RoomPage({
           <span className="join-icon">
             <Users size={30} />
           </span>
-          <h2>{room.closed ? 'みんなの精算が確定しました' : 'あなたの名前を教えてください'}</h2>
+          <h2>
+            {room.closed
+              ? 'みんなの精算が確定しました'
+              : isFull
+                ? '全員が参加しています'
+                : 'あなたの名前を教えてください'}
+          </h2>
           <p>
             {room.closed
               ? '参加者ごとの支払額は以下で確認できます。'
-              : '登録は不要。名前を入れて、自分の品目を選びましょう。'}
+              : isFull
+                ? '参加済みの方は、参加したときのブラウザから開いてください。'
+                : '登録は不要。名前を入れて、自分の品目を選びましょう。'}
           </p>
-          {!room.closed && (
+          {!room.closed && !isFull && (
             <form onSubmit={join}>
               <label className="sr-only" htmlFor="join-name">
                 あなたの名前
@@ -955,7 +991,7 @@ function RoomPage({
             </div>
             <span className="member-progress">
               <Users size={15} />
-              {doneCount} / {room.members.length}人が入力完了
+              {doneCount} / {participantCount}人が入力完了
             </span>
           </div>
           <div className="tabs" role="tablist" aria-label="精算の表示">
@@ -1179,7 +1215,9 @@ function RoomPage({
                   <p className="muted small">
                     {settlement.ready
                       ? '全員の入力が完了しました。金額を確認して確定できます。'
-                      : '全員の入力完了と、すべての品目・個数の割当が必要です。'}
+                      : missingParticipants > 0
+                        ? `あと${missingParticipants}人の参加を待っています。共有リンクを送ってください。`
+                        : '全員の入力完了と、すべての品目・個数の割当が必要です。'}
                   </p>
                 </>
               ))}

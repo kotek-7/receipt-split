@@ -16,6 +16,7 @@ export interface Room {
   payerId: string;
   items: ReceiptItem[];
   total: number;
+  participantCount?: number;
   members: Member[];
   selections: Record<string, string[]>;
   selectionQuantities?: Record<string, Record<string, number>>;

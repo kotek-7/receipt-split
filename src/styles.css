@@ -724,6 +724,22 @@ label > input {
   margin-top: 9px;
   font-size: 13px;
 }
+.participant-count-field {
+  margin-bottom: 24px;
+}
+.participant-count-field > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+}
+.participant-count-field input {
+  width: 100px;
+  font-size: 16px;
+}
+.participant-count-field p {
+  margin: 8px 0 0;
+}
 .item-editor-header {
   display: flex;
   justify-content: space-between;

@@ -18,6 +18,7 @@ const createSchema = z
   .object({
     title: z.string().trim().min(1).max(80),
     payerName: nameSchema,
+    participantCount: z.number().int().min(1).max(100).optional(),
     items: z
       .array(
         z
@@ -58,7 +59,7 @@ const paidSchema = z.object({ memberId: z.string(), paid: z.boolean() }).strict(
 const roomRoute =
   /^\/api\/rooms\/([A-Za-z0-9_-]{32})(?:\/(members|selection|close|paid)(?:\/([A-Za-z0-9_-]{32}))?)?$/;
 const createError =
-  'タイトル・名前・明細を確認してください。金額は 1 円以上、個数は 1〜999 の整数で入力してください。';
+  'タイトル・名前・明細を確認してください。割り勘人数は 1〜100 人、金額は 1 円以上、個数は 1〜999 の整数で入力してください。';
 const notFound = 'この精算が見つかりません。共有リンクを確認してください。';
 
 class ApiError extends Error {
@@ -231,6 +232,7 @@ export class ReceiptRoom extends DurableObject<Env> {
             id: roomId,
             title: input.title,
             payerId: identity!.memberId,
+            participantCount: input.participantCount,
             items: input.items,
             total: input.total,
             members: [{ id: identity!.memberId, name: input.payerName, done: false }],
@@ -264,6 +266,11 @@ export class ReceiptRoom extends DurableObject<Env> {
             );
           if (room.members.some((member) => normalizedName(member.name) === normalizedName(name)))
             throw new ApiError(409, '同じ名前の人が参加しています。別の名前で参加してください。');
+          if (room.participantCount !== undefined && room.members.length >= room.participantCount)
+            throw new ApiError(
+              409,
+              `この精算は定員の ${room.participantCount} 人が参加済みです。立て替えた人に確認してください。`,
+            );
           room.members.push({ id: identity!.memberId, name, done: false });
           room.selections[identity!.memberId] = [];
           this.ctx.storage.sql.exec(
@@ -329,7 +336,10 @@ export class ReceiptRoom extends DurableObject<Env> {
             );
           if (input.closed === room.closed) return room;
           if (input.closed && !calculateSettlement(room).ready)
-            throw new ApiError(409, '全員の選択完了と、すべての明細・購入数の割り当てが必要です。');
+            throw new ApiError(
+              409,
+              '全員の参加・選択完了と、すべての明細・購入数の割り当てが必要です。',
+            );
           room.closed = input.closed;
           if (!input.closed) room.paidMemberIds = [];
         } else if (action === 'paid') {

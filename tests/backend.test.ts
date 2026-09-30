@@ -73,6 +73,161 @@ async function fixture(context: TestContext, input = initialRoom) {
   return { api, room, payer, other: joined.data.identity };
 }
 
+test('participant count accepts integer bounds and remains optional for older clients', async (context) => {
+  const api = await start();
+  context.after(() => api.stop());
+  for (const participantCount of [1, 100]) {
+    const created = await api.request<SessionResponse>('POST', '/api/rooms', {
+      ...initialRoom,
+      participantCount,
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.data.room.participantCount, participantCount);
+    assert.equal(created.data.room.members.length, 1);
+    if (participantCount === 1) {
+      const route = `/api/rooms/${created.data.room.id}`;
+      assert.equal(
+        (await api.request('POST', `${route}/members`, { name: '追加参加' })).status,
+        409,
+      );
+      const selected = await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: ['pasta', 'salad'], done: true },
+        created.data.identity.token,
+      );
+      assert.equal(
+        (
+          await api.request(
+            'POST',
+            `${route}/close`,
+            { closed: true, version: selected.data.version },
+            created.data.identity.token,
+          )
+        ).status,
+        200,
+      );
+    }
+  }
+  for (const participantCount of [0, -1, 1.5, 101, '2', null, true]) {
+    const invalid = await api.request<{ error: string }>('POST', '/api/rooms', {
+      ...initialRoom,
+      participantCount,
+    });
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.data.error, /割り勘人数は 1〜100 人/);
+  }
+  const legacy = await api.request<SessionResponse>('POST', '/api/rooms', initialRoom);
+  assert.equal(legacy.status, 201);
+  assert.equal(Object.hasOwn(legacy.data.room, 'participantCount'), false);
+});
+
+test('participant count persists and gates closing, concurrent joins, and replacement members', async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'receipt-split-count-test-'));
+  const dbPath = path.join(directory, 'rooms.sqlite');
+  let api = await start(dbPath);
+  context.after(async () => {
+    await api.stop();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', {
+    ...initialRoom,
+    participantCount: 2,
+  });
+  assert.equal(created.status, 201);
+  const { room, identity: payer } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  const selected = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['pasta', 'salad'], done: true },
+    payer.token,
+  );
+  const earlyClose = await api.request<{ error: string }>(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: selected.data.version },
+    payer.token,
+  );
+  assert.equal(earlyClose.status, 409);
+  assert.match(earlyClose.data.error, /全員の参加/);
+  await api.stop();
+  api = await start(dbPath);
+  const loaded = await api.request('GET', route);
+  assert.deepEqual(loaded.data, selected.data);
+  assert.equal(loaded.data.participantCount, 2);
+
+  const results = await Promise.all(
+    ['参加者 A', '参加者 B'].map((name) =>
+      api.request<SessionResponse | { error: string }>('POST', `${route}/members`, { name }),
+    ),
+  );
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
+  const winner = results.find((result) => result.status === 201)!.data as SessionResponse;
+  const rejected = results.find((result) => result.status === 409)!.data as { error: string };
+  assert.match(rejected.error, /定員の 2 人/);
+  const latest = await api.request('GET', route);
+  assert.equal(latest.data.members.length, 2);
+  assert.equal(latest.data.version, selected.data.version + 1);
+  const completed = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: [], done: true },
+    winner.identity.token,
+  );
+  assert.equal(calculateSettlement(completed.data).ready, true);
+  const removed = await api.request(
+    'DELETE',
+    `${route}/members/${winner.identity.memberId}`,
+    {},
+    payer.token,
+  );
+  assert.equal(removed.status, 200);
+  assert.equal(removed.data.participantCount, 2);
+  assert.equal(calculateSettlement(removed.data).ready, false);
+  assert.equal(
+    (
+      await api.request(
+        'POST',
+        `${route}/close`,
+        { closed: true, version: removed.data.version },
+        payer.token,
+      )
+    ).status,
+    409,
+  );
+  const replacement = await api.request<SessionResponse>('POST', `${route}/members`, {
+    name: winner.room.members.find((member) => member.id === winner.identity.memberId)!.name,
+  });
+  assert.equal(replacement.status, 201);
+  assert.notEqual(replacement.data.identity.memberId, winner.identity.memberId);
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: [], done: true },
+        winner.identity.token,
+      )
+    ).status,
+    403,
+  );
+  const ready = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: [], done: true },
+    replacement.data.identity.token,
+  );
+  const closed = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: ready.data.version },
+    payer.token,
+  );
+  assert.equal(closed.status, 200);
+  assert.equal(closed.data.closed, true);
+});
+
 test('independent member sessions update only their own selections without losing concurrent writes', async (context) => {
   const { api, room, payer, other } = await fixture(context);
   const results = await Promise.all([

@@ -32,6 +32,7 @@ const createSchema = z
   .object({
     title: z.string().trim().min(1).max(80),
     payerName: nameSchema,
+    participantCount: z.number().int().min(1).max(100).optional(),
     items: z
       .array(itemSchema)
       .min(1)
@@ -177,7 +178,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
     const input = parse(
       createSchema,
       request.body,
-      'タイトル・名前・明細を確認してください。金額は 1 円以上、個数は 1〜999 の整数で入力してください。',
+      'タイトル・名前・明細を確認してください。割り勘人数は 1〜100 人、金額は 1 円以上、個数は 1〜999 の整数で入力してください。',
     );
     const result = transaction<SessionResponse>(() => {
       const now = new Date().toISOString();
@@ -186,6 +187,7 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
         id: randomId(),
         title: input.title,
         payerId,
+        participantCount: input.participantCount,
         items: input.items,
         total: input.total,
         members: [{ id: payerId, name: input.payerName, done: false }],
@@ -217,6 +219,11 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
       if (room.members.some((member) => normalizedName(member.name) === normalizedName(name))) {
         throw new ApiError(409, '同じ名前の人が参加しています。別の名前で参加してください。');
       }
+      if (room.participantCount !== undefined && room.members.length >= room.participantCount)
+        throw new ApiError(
+          409,
+          `この精算は定員の ${room.participantCount} 人が参加済みです。立て替えた人に確認してください。`,
+        );
       const memberId = randomId();
       room.members.push({ id: memberId, name, done: false });
       room.selections[memberId] = [];
@@ -316,7 +323,10 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
           );
         if (input.closed === room.closed) return room;
         if (input.closed && !calculateSettlement(room).ready)
-          throw new ApiError(409, '全員の選択完了と、すべての明細・購入数の割り当てが必要です。');
+          throw new ApiError(
+            409,
+            '全員の参加・選択完了と、すべての明細・購入数の割り当てが必要です。',
+          );
         room.closed = input.closed;
         if (!input.closed) room.paidMemberIds = [];
         return save(room);
