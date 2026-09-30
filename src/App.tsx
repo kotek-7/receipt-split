@@ -24,10 +24,11 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Identity, ParsedReceipt, ReceiptItem, Room, SessionResponse } from '../shared/types';
-import { calculateSettlement } from '../shared/settlement';
+import { calculateSettlement, getItemSplitMode, getSelectionQuantity } from '../shared/settlement';
 import { createItemId } from '../shared/id';
 import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession } from './api';
 import CameraCapture from './CameraCapture';
+import ItemSelection from './ItemSelection';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
@@ -425,7 +426,7 @@ export default function App() {
             </li>
           </ol>
           <div className="info-box">
-            同じ品目を選んだ人が複数いれば均等割り。税・値引きなど、品目の合計と支払総額の差は金額に応じて按分します。数量や負担が異なるときは、別々の品目に分けてください。
+            同じ商品を複数買ったときは「個数で分ける」で、自分の個数を選びます。シェアした料理は「均等に割り勘」で、負担する人全員が選びます。税・値引きなどの差額は金額に応じて按分します。
           </div>
           <p className="muted small">
             共有リンクを知っている人は精算内容を閲覧できます。参加したブラウザをそのまま使ってください。
@@ -503,7 +504,7 @@ function Editor({
       <div className="page-heading">
         <span className="eyebrow">STEP 01 / CHECK YOUR RECEIPT</span>
         <h1>読み取り内容を確認</h1>
-        <p>品目と金額を確認して、みんなに共有しましょう。</p>
+        <p>品目・個数・分け方を確認して、みんなに共有しましょう。</p>
       </div>
       <form onSubmit={submit} className="editor-layout">
         <section className="panel editor-panel">
@@ -583,6 +584,58 @@ function Editor({
                 >
                   <Trash2 size={17} />
                 </button>
+                <div className="item-split-options">
+                  <label>
+                    購入数
+                    <input
+                      aria-label={`品目${index + 1}の購入数`}
+                      type="number"
+                      required
+                      min="1"
+                      max="999"
+                      step="1"
+                      inputMode="numeric"
+                      value={(item.quantity ?? 1) || ''}
+                      onChange={(e) => {
+                        const quantity = Number(e.target.value);
+                        updateItems(
+                          items.map((i) =>
+                            i.id === item.id
+                              ? {
+                                  ...i,
+                                  quantity,
+                                  splitMode: i.splitMode ?? (quantity > 1 ? 'quantity' : undefined),
+                                }
+                              : i,
+                          ),
+                        );
+                      }}
+                    />
+                    個
+                  </label>
+                  <label>
+                    <span className="sr-only">品目{index + 1}の分け方</span>
+                    <select
+                      aria-label={`品目${index + 1}の分け方`}
+                      value={getItemSplitMode(item)}
+                      onChange={(e) =>
+                        updateItems(
+                          items.map((i) =>
+                            i.id === item.id
+                              ? {
+                                  ...i,
+                                  splitMode: e.target.value as 'equal' | 'quantity',
+                                }
+                              : i,
+                          ),
+                        )
+                      }
+                    >
+                      <option value="quantity">個数で分ける</option>
+                      <option value="equal">均等に割り勘</option>
+                    </select>
+                  </label>
+                </div>
               </div>
             ))}
           </div>
@@ -651,7 +704,9 @@ function Editor({
           )}
           <div className="info-box">
             <Sparkles size={17} />
-            <p>シェアした料理は1つの品目のままでOK。複数人が選ぶと、自動で人数割りになります。</p>
+            <p>
+              1人1個ずつなら「個数で分ける」。シェアする料理は「均等に割り勘」。金額は購入数すべての合計を入力します。
+            </p>
           </div>
           {draft.rawText && (
             <details className="raw-text">
@@ -734,6 +789,13 @@ function RoomPage({
       setError(errorText(e));
       if (path === '/close') setConfirming(null);
       setRemoving(null);
+      if (path === '/selection') {
+        try {
+          applyRoom(await getRoom(id));
+        } catch {
+          // Keep the original selection error; polling will retry the refresh.
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -784,17 +846,26 @@ function RoomPage({
   const selected = room.selections[member?.id || ''] || [];
   const myAmount = settlement.memberAmounts[member?.id || ''] || 0;
   const doneCount = room.members.filter((m) => m.done).length;
-  const toggle = (itemId: string) =>
-    void mutate(
-      '/selection',
-      {
-        itemIds: selected.includes(itemId)
-          ? selected.filter((i) => i !== itemId)
-          : [...selected, itemId],
-        done: false,
-      },
-      'PUT',
-    );
+  const selectionData = (itemIds = selected, done = false) => ({
+    itemIds,
+    done,
+    quantities: Object.fromEntries(
+      room.items
+        .filter((item) => itemIds.includes(item.id) && getItemSplitMode(item) === 'quantity')
+        .map((item) => [item.id, getSelectionQuantity(room, member?.id || '', item) || 1]),
+    ),
+  });
+  const changeQuantity = (item: ReceiptItem, quantity: number) => {
+    const itemIds =
+      quantity > 0
+        ? selected.includes(item.id)
+          ? selected
+          : [...selected, item.id]
+        : selected.filter((id) => id !== item.id);
+    const data = selectionData(itemIds);
+    if (quantity > 0 && getItemSplitMode(item) === 'quantity') data.quantities[item.id] = quantity;
+    void mutate('/selection', data, 'PUT');
+  };
   const transferText = [
     `${room.title} の精算`,
     ...room.members
@@ -904,46 +975,25 @@ function RoomPage({
           <section className="panel item-selection">
             <div className="selection-heading">
               <div>
-                <h2>{room.closed ? 'あなたが選んだ品目' : '自分の品目をタップ'}</h2>
-                <p>シェアしたものは、みんなで選んでOK。</p>
+                <h2>{room.closed ? 'あなたが選んだ品目' : '自分の品目・個数を選ぶ'}</h2>
+                <p>個別の商品は自分の個数を。割り勘する品目は、負担する人全員で選びます。</p>
               </div>
               <span>
                 {selected.length} / {room.items.length}
               </span>
             </div>
             <div className="selectable-items">
-              {room.items.map((item, i) => {
-                const checked = selected.includes(item.id);
-                const allocation = settlement.itemAllocations.find((a) => a.itemId === item.id)!;
-                const eaters = room.members.filter((m) => room.selections[m.id]?.includes(item.id));
-                return (
-                  <button
-                    key={item.id}
-                    className={`selectable-item ${checked ? 'selected' : ''}`}
-                    aria-pressed={checked}
-                    disabled={busy || room.closed}
-                    onClick={() => toggle(item.id)}
-                  >
-                    <span className="item-checkbox">
-                      {checked && <Check size={17} strokeWidth={2.5} />}
-                    </span>
-                    <span className="selection-item-content">
-                      <span className="selection-item-name">{item.name}</span>
-                      <span className="selection-item-members">
-                        {eaters.length
-                          ? `${eaters.map((m) => m.name).join('・')}${eaters.length > 1 ? ` でシェア（${eaters.length}人）` : ''}`
-                          : 'まだ選ばれていません'}
-                      </span>
-                    </span>
-                    <span className="selection-item-price">
-                      <strong>{yen(allocation.amount)}</strong>
-                      {checked && (
-                        <small>あなた {yen(allocation.memberAmounts[member.id] || 0)}</small>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+              {room.items.map((item, index) => (
+                <ItemSelection
+                  key={item.id}
+                  item={item}
+                  room={room}
+                  memberId={member.id}
+                  allocation={settlement.itemAllocations[index]}
+                  busy={busy}
+                  onChange={(quantity) => changeQuantity(item, quantity)}
+                />
+              ))}
             </div>
             {room.total !== room.items.reduce((s, i) => s + i.amount, 0) && (
               <p className="selection-footnote">
@@ -981,14 +1031,10 @@ function RoomPage({
                   className={`button full ${member.done ? 'secondary' : 'primary'}`}
                   disabled={busy}
                   onClick={() =>
-                    void mutate(
-                      '/selection',
-                      { itemIds: selected, done: !member.done },
-                      'PUT',
-                      () =>
-                        setNotice(
-                          member.done ? '選択を再開しました' : '入力完了をみんなに知らせました',
-                        ),
+                    void mutate('/selection', selectionData(selected, !member.done), 'PUT', () =>
+                      setNotice(
+                        member.done ? '選択を再開しました' : '入力完了をみんなに知らせました',
+                      ),
                     )
                   }
                 >
@@ -1091,15 +1137,20 @@ function RoomPage({
             <div className="unassigned">
               <div>
                 <span className="small-dot" />
-                <strong>未選択の品目が{settlement.unassignedCount}件あります</strong>
+                <strong>未割当の品目が{settlement.unassignedCount}件あります</strong>
                 <span>{yen(settlement.unassignedAmount)}</span>
               </div>
               <p>
                 {room.items
-                  .filter(
-                    (item) => !room.members.some((m) => room.selections[m.id]?.includes(item.id)),
-                  )
-                  .map((i) => i.name)
+                  .filter((_, index) => settlement.itemAllocations[index].unassignedQuantity > 0)
+                  .map((item) => {
+                    const allocation = settlement.itemAllocations.find(
+                      (a) => a.itemId === item.id,
+                    )!;
+                    return getItemSplitMode(item) === 'quantity'
+                      ? `${item.name}（あと${allocation.unassignedQuantity}個）`
+                      : item.name;
+                  })
                   .join('・')}
               </p>
             </div>
@@ -1128,7 +1179,7 @@ function RoomPage({
                   <p className="muted small">
                     {settlement.ready
                       ? '全員の入力が完了しました。金額を確認して確定できます。'
-                      : '全員の入力完了と、すべての品目の選択が必要です。'}
+                      : '全員の入力完了と、すべての品目・個数の割当が必要です。'}
                   </p>
                 </>
               ))}
@@ -1151,9 +1202,7 @@ function RoomPage({
           <button
             className={`button ${member.done ? 'secondary' : 'primary'}`}
             disabled={busy}
-            onClick={() =>
-              void mutate('/selection', { itemIds: selected, done: !member.done }, 'PUT')
-            }
+            onClick={() => void mutate('/selection', selectionData(selected, !member.done), 'PUT')}
           >
             {busy ? <Spinner /> : <Check size={17} />}
             {member.done ? '選び直す' : '入力完了'}

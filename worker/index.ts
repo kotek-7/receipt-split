@@ -1,6 +1,11 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
-import { calculateSettlement } from '../shared/settlement';
+import {
+  calculateSettlement,
+  getItemQuantity,
+  getItemSplitMode,
+  getSelectionQuantity,
+} from '../shared/settlement';
 import type { Identity, Room, SessionResponse } from '../shared/types';
 
 export interface Env {
@@ -24,6 +29,8 @@ const createSchema = z
               .regex(/^[a-zA-Z0-9_-]+$/),
             name: z.string().trim().min(1).max(100),
             amount: z.number().int().positive().max(1_000_000),
+            quantity: z.number().int().positive().max(999).optional(),
+            splitMode: z.enum(['equal', 'quantity']).optional(),
           })
           .strict(),
       )
@@ -41,6 +48,7 @@ const selectionSchema = z
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length),
     done: z.boolean(),
+    quantities: z.record(z.number().int().positive().max(999)).optional(),
   })
   .strict();
 const closeSchema = z
@@ -50,7 +58,7 @@ const paidSchema = z.object({ memberId: z.string(), paid: z.boolean() }).strict(
 const roomRoute =
   /^\/api\/rooms\/([A-Za-z0-9_-]{32})(?:\/(members|selection|close|paid)(?:\/([A-Za-z0-9_-]{32}))?)?$/;
 const createError =
-  'タイトル・名前・明細を確認してください。金額は 1 円以上の整数で入力してください。';
+  'タイトル・名前・明細を確認してください。金額は 1 円以上、個数は 1〜999 の整数で入力してください。';
 const notFound = 'この精算が見つかりません。共有リンクを確認してください。';
 
 class ApiError extends Error {
@@ -276,6 +284,40 @@ export class ReceiptRoom extends DurableObject<Env> {
             );
           if (input.itemIds.some((id) => !room.items.some((item) => item.id === id)))
             throw new ApiError(400, '見つからない明細が含まれています。画面を更新してください。');
+          if (
+            Object.keys(input.quantities ?? {}).some(
+              (id) =>
+                !input.itemIds.includes(id) ||
+                !room.items.some((item) => item.id === id && getItemSplitMode(item) === 'quantity'),
+            )
+          )
+            throw new ApiError(400, '個数は「個数で分ける」の選択した明細に入力してください。');
+          const quantities = Object.fromEntries(
+            room.items
+              .filter(
+                (item) => input.itemIds.includes(item.id) && getItemSplitMode(item) === 'quantity',
+              )
+              .map((item) => {
+                const quantity =
+                  input.quantities && Object.hasOwn(input.quantities, item.id)
+                    ? input.quantities[item.id]
+                    : getSelectionQuantity(room, memberId, item) || 1;
+                const otherQuantity = room.members.reduce(
+                  (sum, member) =>
+                    sum +
+                    (member.id === memberId ? 0 : getSelectionQuantity(room, member.id, item)),
+                  0,
+                );
+                if (quantity + otherQuantity > getItemQuantity(item))
+                  throw new ApiError(
+                    409,
+                    `「${item.name}」は購入数 ${getItemQuantity(item)} 個を超えています。ほかの人の選択を確認してください。`,
+                  );
+                return [item.id, quantity];
+              }),
+          );
+          room.selectionQuantities ??= {};
+          room.selectionQuantities[memberId] = quantities;
           room.selections[memberId] = input.itemIds;
           room.members.find((member) => member.id === memberId)!.done = input.done;
         } else if (action === 'close') {
@@ -287,7 +329,7 @@ export class ReceiptRoom extends DurableObject<Env> {
             );
           if (input.closed === room.closed) return room;
           if (input.closed && !calculateSettlement(room).ready)
-            throw new ApiError(409, '全員の選択完了と、すべての明細への選択が必要です。');
+            throw new ApiError(409, '全員の選択完了と、すべての明細・購入数の割り当てが必要です。');
           room.closed = input.closed;
           if (!input.closed) room.paidMemberIds = [];
         } else if (action === 'paid') {
@@ -314,6 +356,7 @@ export class ReceiptRoom extends DurableObject<Env> {
             throw new ApiError(404, '参加者が見つかりません。');
           room.members = room.members.filter((member) => member.id !== targetMemberId);
           delete room.selections[targetMemberId];
+          if (room.selectionQuantities) delete room.selectionQuantities[targetMemberId];
           room.paidMemberIds = room.paidMemberIds.filter((id) => id !== targetMemberId);
           this.ctx.storage.sql.exec('DELETE FROM sessions WHERE member_id = ?', targetMemberId);
         }

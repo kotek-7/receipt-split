@@ -20,6 +20,7 @@ body {
 }
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -63,6 +64,7 @@ button {
   border: 0;
 }
 input,
+select,
 textarea {
   width: 100%;
   min-width: 0;
@@ -77,6 +79,7 @@ textarea {
     box-shadow 0.2s;
 }
 input:focus,
+select:focus,
 textarea:focus {
   border-color: #388e73;
   box-shadow: 0 0 0 3px #147c6410;
@@ -768,6 +771,32 @@ label > input {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.item-split-options {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 0 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.item-split-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.item-split-options input {
+  width: 64px;
+  margin: 0;
+  padding: 9px 8px;
+}
+.item-split-options select {
+  width: auto;
+  min-height: 42px;
+  padding: 9px 8px;
+  font-size: 12px;
+}
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -1125,7 +1154,7 @@ label > input {
 .selectable-item:disabled {
   opacity: 1;
 }
-.selectable-item:not(:disabled):hover {
+button.selectable-item:not(:disabled):hover {
   background: #f4f8f0;
 }
 .item-checkbox {
@@ -1154,6 +1183,54 @@ label > input {
   font-size: 13px;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+.selection-item-mode {
+  color: var(--green);
+  font-size: 10px;
+}
+.quantity-item.selected {
+  background: #f1f8ee;
+}
+.quantity-item .selectable-item {
+  background: transparent;
+  padding-bottom: 12px;
+}
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 23px 18px;
+}
+.quantity-remaining {
+  font-size: 11px;
+  color: var(--green);
+}
+.quantity-remaining.pending {
+  color: #9a612d;
+}
+.quantity-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 11px;
+}
+.quantity-stepper strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.quantity-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #d5dfcc;
+  border-radius: 9px;
+  color: var(--green);
+  background: white;
 }
 .selection-item-members {
   font-size: 9px;
@@ -1900,6 +1977,9 @@ label > input {
     font-size: 16px;
     padding: 11px 9px;
   }
+  .item-split-options select {
+    font-size: 16px;
+  }
   .item-editor-labels {
     grid-template-columns: 1fr 83px 28px;
     gap: 6px;
@@ -2064,6 +2144,10 @@ label > input {
   .selectable-item {
     padding: 19px 18px;
     gap: 12px;
+  }
+  .quantity-controls {
+    padding-right: 18px;
+    padding-left: 18px;
   }
   .selection-item-name {
     font-size: 13px;

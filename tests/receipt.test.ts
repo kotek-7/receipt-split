@@ -5,6 +5,14 @@ import { parseReceipt } from '../shared/parse-receipt.ts';
 const entries = (text: string) =>
   parseReceipt(text).items.map(({ name, amount }) => ({ name, amount }));
 
+const quantities = (text: string) =>
+  parseReceipt(text).items.map(({ name, amount, quantity, splitMode }) => ({
+    name,
+    amount,
+    quantity,
+    splitMode,
+  }));
+
 test('Japanese receipt parses item prices and the payable total without payment or tax metadata', () => {
   const text = `居酒屋 はなび
 東京都新宿区新宿1-2-3
@@ -71,6 +79,36 @@ test('unit-price/quantity columns use the last amount, without multiplying twice
     { name: 'ビール', amount: 1200 },
     { name: 'サラダ', amount: 900 },
   ]);
+});
+
+test('explicit inline quantity columns preserve count and keep the amount as the row total', () => {
+  const rows = [
+    'ビール 600 × 2 1,200',
+    'ビール 2杯 1,200',
+    'ビール ×2 1,200',
+    'ビール 2杯×単600 1,200',
+  ];
+  for (const row of rows) {
+    assert.deepEqual(
+      quantities(row),
+      [{ name: 'ビール', amount: 1200, quantity: 2, splitMode: 'quantity' }],
+      row,
+    );
+    assert.equal(parseReceipt(row).total, 1200, row);
+  }
+});
+
+test('separate quantity lines survive until the following item price', () => {
+  for (const quantityLine of ['×２', '2個', '数量:2']) {
+    assert.deepEqual(
+      quantities(`コーヒー\n${quantityLine}\n単価:550\n￥１，１００\nケーキ ¥500`),
+      [
+        { name: 'コーヒー', amount: 1100, quantity: 2, splitMode: 'quantity' },
+        { name: 'ケーキ', amount: 500, quantity: undefined, splitMode: undefined },
+      ],
+      quantityLine,
+    );
+  }
 });
 
 test('English totals, taxes, payment details and receipt numbers are filtered', () => {
@@ -181,6 +219,9 @@ test('quantity continuations tolerate fullwidth spacing and common multiplicatio
       ],
       row,
     );
+    const item = parseReceipt(`商品\n${row}`).items[0];
+    assert.equal(item.quantity, 3, row);
+    assert.equal(item.splitMode, 'quantity', row);
   }
 });
 
@@ -191,6 +232,19 @@ test('an explicit quantity row total wins over unit multiplication, including on
       { name: 'セット割商品', amount: 400 },
       { name: 'まとめ商品', amount: 270 },
       { name: '普通の商品', amount: 100 },
+    ],
+  );
+});
+
+test('quantity metadata follows explicit and calculated continuation totals', () => {
+  assert.deepEqual(
+    quantities(
+      'セット割商品\n3コX単138 ¥400\nまとめ商品\n2個×単価138\n¥270\n最後の商品\n2個×単価138',
+    ),
+    [
+      { name: 'セット割商品', amount: 400, quantity: 3, splitMode: 'quantity' },
+      { name: 'まとめ商品', amount: 270, quantity: 2, splitMode: 'quantity' },
+      { name: '最後の商品', amount: 276, quantity: 2, splitMode: 'quantity' },
     ],
   );
 });
@@ -219,6 +273,38 @@ test('quantity details after an already priced product do not duplicate its amou
   );
 });
 
+test('quantity details immediately after a priced item add its count without replacing its amount', () => {
+  assert.deepEqual(
+    quantities('お茶 ¥270\n2コX単138 ¥276\nパン ¥148\nおにぎり ¥400\n3コX単138\n¥414'),
+    [
+      { name: 'お茶', amount: 270, quantity: 2, splitMode: 'quantity' },
+      { name: 'パン', amount: 148, quantity: undefined, splitMode: undefined },
+      { name: 'おにぎり', amount: 400, quantity: 3, splitMode: 'quantity' },
+    ],
+  );
+});
+
+test('quantity metadata is bounded and does not come from package sizes, models, or unit prices', () => {
+  const receipt = parseReceipt(
+    '飲料350m ¥236\n食品350 ¥276\n2個入りセット ¥100\n型番X2 ¥200\n単価:200\n単品 1個 ¥100\n誤読 0個 ¥100\n誤読大量 1000個 ¥100\n最大 999個 ¥999',
+  );
+  assert.deepEqual(
+    receipt.items.map(({ quantity, splitMode }) => ({ quantity, splitMode })),
+    [
+      ...Array.from({ length: 7 }, () => ({ quantity: undefined, splitMode: undefined })),
+      { quantity: 999, splitMode: 'quantity' },
+    ],
+  );
+  assert.equal(receipt.total, 2111);
+});
+
+test('quantity counts do not leak across unrelated lines or an unpriced product', () => {
+  assert.deepEqual(quantities('商品 ¥100\n小計 ¥100\n2コX単50\n未読の商品\n×3\n次の商品 ¥200'), [
+    { name: '商品', amount: 100, quantity: undefined, splitMode: undefined },
+    { name: '次の商品', amount: 200, quantity: undefined, splitMode: undefined },
+  ]);
+});
+
 test('an incomplete quantity row does not consume or rename the following product', () => {
   assert.deepEqual(
     entries('読み取れなかった商品\n2コX単\n次の商品 ¥200\n最後の商品\n2コX単\n¥276'),
@@ -227,6 +313,9 @@ test('an incomplete quantity row does not consume or rename the following produc
       { name: '最後の商品', amount: 276 },
     ],
   );
+  assert.deepEqual(quantities('まとめ商品\n2個×単100\n小計 ¥200\n4個'), [
+    { name: 'まとめ商品', amount: 200, quantity: 2, splitMode: 'quantity' },
+  ]);
 });
 
 test('category markers are removed while actual names and package numbers are kept', () => {

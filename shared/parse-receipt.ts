@@ -93,7 +93,25 @@ function cleanName(name: string): string {
     .trim();
 }
 
-type QuantityPrice = { calculated?: number; explicit?: number };
+function validQuantity(value: string): number | undefined {
+  const quantity = Number(value);
+  return Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 999 ? quantity : undefined;
+}
+
+/** Only explicit quantity columns count; package sizes and product codes do not. */
+function inlineQuantity(label: string): number | undefined {
+  const unitFirst = label.match(/\s+[¥￥\\]?\d+(?:\s*,\s*\d+)*\s*[×xX]\s*(\d+)\s*$/);
+  if (unitFirst) return validQuantity(unitFirst[1]);
+  const quantityFirst = label.match(/\s+(\d+\s*(?:コ|個|点|皿|本|杯|人前)\s*.*)$/);
+  if (quantityFirst) {
+    const detail = quantityPrice(quantityFirst[1]);
+    if (detail) return detail.quantity;
+  }
+  const count = label.match(/\s+(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ))\s*$/);
+  return count ? validQuantity(count[1] ?? count[2]) : undefined;
+}
+
+type QuantityPrice = { quantity?: number; calculated?: number; explicit?: number };
 
 /** A supermarket often prints the quantity, unit price, and row total below its name. */
 function quantityPrice(line: string): QuantityPrice | null {
@@ -101,8 +119,9 @@ function quantityPrice(line: string): QuantityPrice | null {
     /^(\d+)\s*(?:コ|個|点|皿|本|杯|人前)\s*(?:(?:[×xXメ]\s*)+(?:(?:単\s*価?|B)\s*[:：]?\s*)?|単\s*価?\s*[:：]?\s*)/,
   );
   if (!prefix) return null;
+  const quantity = validQuantity(prefix[1]);
   const rest = line.slice(prefix[0].length).trim();
-  if (!rest) return {};
+  if (!rest) return { quantity };
   const unit = rest.match(/^(?:[¥￥\\]\s*)?(\d+(?:\s*,\s*\d+)*)(?:\s*円)?/);
   if (!unit) return null;
   const remainder = rest.slice(unit[0].length);
@@ -112,6 +131,7 @@ function quantityPrice(line: string): QuantityPrice | null {
   if (remainder.trim() && (!row || row.label || row.amount < 0)) return null;
   const calculated = Number(prefix[1]) * Number(unit[1].replace(/[\s,]/g, ''));
   return {
+    quantity,
     calculated:
       Number(prefix[1]) > 0 && Number.isSafeInteger(calculated) && calculated <= MAX_AMOUNT
         ? calculated
@@ -126,6 +146,13 @@ function isQuantityLine(line: string): boolean {
   );
 }
 
+function standaloneQuantity(line: string): number | undefined {
+  const count = line.match(
+    /^(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ)|数量\s*[:：]?\s*(\d+))$/,
+  );
+  return count ? validQuantity(count[1] ?? count[2] ?? count[3]) : undefined;
+}
+
 /** OCR is fallible: this parser returns an editable draft, never a confirmed bill. */
 export function parseReceipt(text: string): ParsedReceipt {
   const lines = text.split(/\r?\n/).map(normalize).filter(Boolean);
@@ -134,19 +161,35 @@ export function parseReceipt(text: string): ParsedReceipt {
   let discounts = 0;
   let pending: string | undefined;
   let pendingUnitTotal: number | undefined;
+  let pendingQuantity: number | undefined;
+  let precedingItem: ReceiptItem | undefined;
   let title = 'レシートの精算';
   let finishedItems = false;
 
-  const addItem = (label: string, amount: number) => {
-    const name = cleanName(label);
-    if (name && !isMetadata(name) && !/^\d+$/.test(name) && !isQuantityLine(name)) {
-      items.push({ id: createItemId(), name, amount });
+  const setQuantity = (item: ReceiptItem, quantity: number | undefined) => {
+    if (quantity !== undefined && quantity > 1) {
+      item.quantity = quantity;
+      item.splitMode = 'quantity';
     }
   };
-  const finishQuantityItem = () => {
-    if (pending && pendingUnitTotal !== undefined) addItem(pending, pendingUnitTotal);
+  const addItem = (label: string, amount: number, quantity = inlineQuantity(label)) => {
+    const name = cleanName(label);
+    if (name && !isMetadata(name) && !/^\d+$/.test(name) && !isQuantityLine(name)) {
+      const item: ReceiptItem = { id: createItemId(), name, amount };
+      setQuantity(item, quantity);
+      items.push(item);
+      precedingItem = item;
+    }
+  };
+  const clearPending = () => {
     pending = undefined;
     pendingUnitTotal = undefined;
+    pendingQuantity = undefined;
+  };
+  const finishQuantityItem = () => {
+    if (pending && pendingUnitTotal !== undefined)
+      addItem(pending, pendingUnitTotal, pendingQuantity);
+    clearPending();
   };
 
   for (const line of lines) {
@@ -154,27 +197,36 @@ export function parseReceipt(text: string): ParsedReceipt {
     const quantity = quantityPrice(line);
     if (quantity) {
       if (!finishedItems && pending && !isMetadata(pending) && !isTotal(pending)) {
+        pendingQuantity = quantity.quantity;
         if (quantity.explicit !== undefined) {
-          addItem(pending, quantity.explicit);
-          pending = undefined;
-          pendingUnitTotal = undefined;
+          addItem(pending, quantity.explicit, pendingQuantity);
+          clearPending();
         } else if (quantity.calculated !== undefined) {
           // Defer until the next line: a separately printed row total takes precedence.
           pendingUnitTotal = quantity.calculated;
         }
+      } else if (!finishedItems && !pending && precedingItem) {
+        setQuantity(precedingItem, quantity.quantity);
       }
+      precedingItem = undefined;
       continue;
     }
-    if (isQuantityLine(line)) continue;
+    if (isQuantityLine(line)) {
+      const quantity = standaloneQuantity(line);
+      if (!finishedItems && pending) pendingQuantity = quantity ?? pendingQuantity;
+      else if (!finishedItems && precedingItem) setQuantity(precedingItem, quantity);
+      precedingItem = undefined;
+      continue;
+    }
     if (pendingUnitTotal !== undefined && !(price && !price.label)) finishQuantityItem();
+    precedingItem = undefined;
     const label = price?.label || pending || '';
 
     if (isTotal(line) || (price && !price.label && pending && isTotal(pending))) {
       if (price && price.amount >= 0) {
         total = price.amount;
         finishedItems = items.length > 0;
-        pending = undefined;
-        pendingUnitTotal = undefined;
+        clearPending();
       } else {
         pending = line;
       }
@@ -182,8 +234,7 @@ export function parseReceipt(text: string): ParsedReceipt {
     }
 
     if (isMetadata(line)) {
-      pending = undefined;
-      pendingUnitTotal = undefined;
+      clearPending();
       continue;
     }
     if (finishedItems) continue;
@@ -191,18 +242,17 @@ export function parseReceipt(text: string): ParsedReceipt {
     if (price) {
       if (DISCOUNT.test(label) || price.amount < 0) {
         discounts -= Math.abs(price.amount);
-        pending = undefined;
-        pendingUnitTotal = undefined;
+        clearPending();
         continue;
       }
-      addItem(label, price.amount);
-      pending = undefined;
-      pendingUnitTotal = undefined;
+      addItem(label, price.amount, price.label ? inlineQuantity(price.label) : pendingQuantity);
+      clearPending();
     } else if (/[\p{L}]/u.test(line) && line.length <= 100) {
+      pendingQuantity = undefined;
       pending = line;
       if (title === 'レシートの精算' && items.length === 0 && !DISCOUNT.test(line)) title = line;
     } else {
-      pending = undefined;
+      clearPending();
     }
   }
   finishQuantityItem();

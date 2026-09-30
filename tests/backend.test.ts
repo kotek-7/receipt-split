@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { createApp } from '../server/app';
+import { calculateSettlement } from '../shared/settlement';
 import type { Room, SessionResponse } from '../shared/types';
 
 const initialRoom = {
@@ -14,6 +15,16 @@ const initialRoom = {
   items: [
     { id: 'pasta', name: 'パスタ', amount: 700 },
     { id: 'salad', name: 'サラダ', amount: 300 },
+  ],
+};
+
+const mixedRoom = {
+  title: '個別のドリンクとシェア料理',
+  payerName: 'あき',
+  total: 1_501,
+  items: [
+    { id: 'drink', name: 'ドリンク', amount: 900, quantity: 3, splitMode: 'quantity' },
+    { id: 'shared', name: 'シェア料理', amount: 600, quantity: 1, splitMode: 'equal' },
   ],
 };
 
@@ -49,10 +60,10 @@ async function start(dbPath = ':memory:') {
   };
 }
 
-async function fixture(context: TestContext) {
+async function fixture(context: TestContext, input = initialRoom) {
   const api = await start();
   context.after(() => api.stop());
-  const created = await api.request<SessionResponse>('POST', '/api/rooms', initialRoom);
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', input);
   assert.equal(created.status, 201);
   const { room, identity: payer } = created.data;
   const joined = await api.request<SessionResponse>('POST', `/api/rooms/${room.id}/members`, {
@@ -450,4 +461,258 @@ test('participant removal rejects unauthenticated, non-payer, self, missing, and
   assert.equal((await api.request('DELETE', removeOther, {}, payer.token)).status, 409);
   const stillClosed = await api.request('GET', route);
   assert.deepEqual(stillClosed.data, paid.data);
+});
+
+test('individual quantities and shared items settle together, with partial quantities blocking close', async (context) => {
+  const { api, room, payer, other } = await fixture(context, mixedRoom);
+  const route = `/api/rooms/${room.id}`;
+  assert.deepEqual(room.items, mixedRoom.items);
+  await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink', 'shared'], quantities: { drink: 2 }, done: true },
+    payer.token,
+  );
+  const partial = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['shared'], done: true },
+    other.token,
+  );
+  const partialSettlement = calculateSettlement(partial.data);
+  assert.equal(partialSettlement.ready, false);
+  assert.equal(partialSettlement.unassignedCount, 1);
+  assert.ok(partialSettlement.unassignedAmount > 0);
+  assert.equal(
+    (
+      await api.request(
+        'POST',
+        `${route}/close`,
+        { closed: true, version: partial.data.version },
+        payer.token,
+      )
+    ).status,
+    409,
+  );
+  const ready = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink', 'shared'], quantities: { drink: 1 }, done: true },
+    other.token,
+  );
+  assert.equal(ready.status, 200);
+  assert.deepEqual(ready.data.selectionQuantities, {
+    [payer.memberId]: { drink: 2 },
+    [other.memberId]: { drink: 1 },
+  });
+  const settlement = calculateSettlement(ready.data);
+  assert.equal(settlement.ready, true);
+  assert.deepEqual(settlement.memberAmounts, { [payer.memberId]: 901, [other.memberId]: 600 });
+  const closed = await api.request(
+    'POST',
+    `${route}/close`,
+    { closed: true, version: ready.data.version },
+    payer.token,
+  );
+  assert.equal(closed.status, 200);
+  assert.equal(closed.data.closed, true);
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: [], quantities: {}, done: false },
+        payer.token,
+      )
+    ).status,
+    409,
+  );
+});
+
+test('invalid item quantities and selection quantities do not modify the room', async (context) => {
+  const { api, room, payer } = await fixture(context, mixedRoom);
+  for (const quantity of [0, -1, 1.5, 1000, '2', null]) {
+    const invalid = { ...mixedRoom, items: [{ ...mixedRoom.items[0], quantity }] };
+    assert.equal((await api.request('POST', '/api/rooms', invalid)).status, 400);
+  }
+  assert.equal(
+    (
+      await api.request('POST', '/api/rooms', {
+        ...mixedRoom,
+        items: [{ ...mixedRoom.items[0], splitMode: 'invalid' }],
+      })
+    ).status,
+    400,
+  );
+  const route = `/api/rooms/${room.id}`;
+  for (const quantities of [
+    { drink: 0 },
+    { drink: -1 },
+    { drink: 1.5 },
+    { drink: 1000 },
+    { drink: '2' },
+    { drink: null },
+    { missing: 1 },
+    { shared: 1 },
+  ]) {
+    assert.equal(
+      (
+        await api.request(
+          'PUT',
+          `${route}/selection`,
+          { itemIds: ['drink', 'shared'], quantities, done: true },
+          payer.token,
+        )
+      ).status,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: [], quantities: { drink: 1 }, done: true },
+        payer.token,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: ['drink', 'drink'], quantities: { drink: 1 }, done: true },
+        payer.token,
+      )
+    ).status,
+    400,
+  );
+  const tooMany = await api.request<{ error: string }>(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink'], quantities: { drink: 4 }, done: true },
+    payer.token,
+  );
+  assert.equal(tooMany.status, 409);
+  assert.match(tooMany.data.error, /ドリンク.*購入数 3 個/);
+  const unchanged = await api.request('GET', route);
+  assert.equal(unchanged.data.version, 2);
+  assert.deepEqual(unchanged.data.selections[payer.memberId], []);
+});
+
+test('omitted quantities preserve previous choices, deselection clears them, and selection defaults to one', async (context) => {
+  const { api, room, payer } = await fixture(context, mixedRoom);
+  const route = `/api/rooms/${room.id}`;
+  await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink'], quantities: { drink: 2 }, done: false },
+    payer.token,
+  );
+  const done = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink'], done: true },
+    payer.token,
+  );
+  assert.equal(done.data.selectionQuantities?.[payer.memberId].drink, 2);
+  const deselected = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: [], done: false },
+    payer.token,
+  );
+  assert.deepEqual(deselected.data.selectionQuantities?.[payer.memberId], {});
+  const selected = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink'], done: true },
+    payer.token,
+  );
+  assert.equal(selected.data.selectionQuantities?.[payer.memberId].drink, 1);
+});
+
+test('concurrent claims for the final unit permit one writer and removal releases the quantity', async (context) => {
+  const input = { ...mixedRoom, items: [{ ...mixedRoom.items[0], quantity: 2 }] };
+  const { api, room, payer, other } = await fixture(context, input);
+  const route = `/api/rooms/${room.id}`;
+  const joined = await api.request<SessionResponse>('POST', `${route}/members`, { name: 'なつ' });
+  const third = joined.data.identity;
+  await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink'], quantities: { drink: 1 }, done: true },
+    payer.token,
+  );
+  const identities = [other, third];
+  const results = await Promise.all(
+    identities.map((identity) =>
+      api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: ['drink'], quantities: { drink: 1 }, done: true },
+        identity.token,
+      ),
+    ),
+  );
+  assert.deepEqual(results.map((result) => result.status).sort(), [200, 409]);
+  const winner = identities[results.findIndex((result) => result.status === 200)];
+  const loser = identities[results.findIndex((result) => result.status === 409)];
+  const latest = await api.request('GET', route);
+  assert.equal(latest.data.version, 5);
+  assert.deepEqual(latest.data.selections[loser.memberId], []);
+  assert.deepEqual(latest.data.selectionQuantities?.[winner.memberId], { drink: 1 });
+  const removed = await api.request(
+    'DELETE',
+    `${route}/members/${winner.memberId}`,
+    {},
+    payer.token,
+  );
+  assert.equal(removed.status, 200);
+  assert.equal(removed.data.selectionQuantities?.[winner.memberId], undefined);
+  assert.equal(
+    (
+      await api.request(
+        'PUT',
+        `${route}/selection`,
+        { itemIds: ['drink'], quantities: { drink: 1 }, done: true },
+        loser.token,
+      )
+    ).status,
+    200,
+  );
+});
+
+test('quantity selections and split modes survive a server restart', async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'receipt-split-quantity-test-'));
+  const dbPath = path.join(directory, 'rooms.sqlite');
+  let api = await start(dbPath);
+  context.after(async () => {
+    await api.stop();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const created = await api.request<SessionResponse>('POST', '/api/rooms', mixedRoom);
+  const { room, identity } = created.data;
+  const route = `/api/rooms/${room.id}`;
+  const selected = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink', 'shared'], quantities: { drink: 3 }, done: false },
+    identity.token,
+  );
+  await api.stop();
+  api = await start(dbPath);
+  const loaded = await api.request('GET', route);
+  assert.deepEqual(loaded.data, selected.data);
+  const done = await api.request(
+    'PUT',
+    `${route}/selection`,
+    { itemIds: ['drink', 'shared'], done: true },
+    identity.token,
+  );
+  assert.equal(done.status, 200);
+  assert.equal(done.data.selectionQuantities?.[identity.memberId].drink, 3);
+  assert.equal(calculateSettlement(done.data).ready, true);
 });

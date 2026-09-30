@@ -2,6 +2,8 @@ export interface ReceiptItem {
   id: string;
   name: string;
   amount: number;
+  quantity?: number;
+  splitMode?: 'equal' | 'quantity';
 }
 export interface Member {
   id: string;
@@ -16,6 +18,7 @@ export interface Room {
   total: number;
   members: Member[];
   selections: Record<string, string[]>;
+  selectionQuantities?: Record<string, Record<string, number>>;
   paidMemberIds: string[];
   closed: boolean;
   createdAt: string;
@@ -34,6 +37,8 @@ export interface ItemAllocation {
   itemId: string;
   amount: number;
   memberAmounts: Record<string, number>;
+  unassignedQuantity: number;
+  unassignedAmount: number;
 }
 export interface Settlement {
   memberAmounts: Record<string, number>;
