@@ -208,7 +208,7 @@ const raceResults = await Promise.all(
   }),
 );
 assert.deepEqual(raceResults.map((result) => result.status).sort(), [200, 409]);
-assert.match(raceResults.find((result) => result.status === 409).data.error, /購入数 2 個/);
+assert.match(raceResults.find((result) => result.status === 409).data.error, /レシートの数量 2/);
 const winner = racers[raceResults.findIndex((result) => result.status === 200)];
 const loser = racers[raceResults.findIndex((result) => result.status === 409)];
 const raceRoom = await api('GET', raceRoute);
@@ -270,7 +270,7 @@ const countRacers = await Promise.all(
 );
 assert.deepEqual(countRacers.map((result) => result.status).sort(), [201, 409]);
 const countWinner = countRacers.find((result) => result.status === 201).data;
-assert.match(countRacers.find((result) => result.status === 409).data.error, /定員の 2 人/);
+assert.match(countRacers.find((result) => result.status === 409).data.error, /設定した 2 人/);
 countedRoom = await api('GET', countedRoute);
 assert.equal(countedRoom.members.length, 2);
 assert.equal(countedRoom.version, 3);
