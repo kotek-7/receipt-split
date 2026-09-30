@@ -165,7 +165,7 @@ test('participant count persists and gates closing, concurrent joins, and replac
   assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
   const winner = results.find((result) => result.status === 201)!.data as SessionResponse;
   const rejected = results.find((result) => result.status === 409)!.data as { error: string };
-  assert.match(rejected.error, /定員の 2 人/);
+  assert.match(rejected.error, /設定した 2 人/);
   const latest = await api.request('GET', route);
   assert.equal(latest.data.members.length, 2);
   assert.equal(latest.data.version, selected.data.version + 1);
@@ -751,7 +751,7 @@ test('invalid item quantities and selection quantities do not modify the room', 
     payer.token,
   );
   assert.equal(tooMany.status, 409);
-  assert.match(tooMany.data.error, /ドリンク.*購入数 3 個/);
+  assert.match(tooMany.data.error, /ドリンク.*レシートの数量 3/);
   const unchanged = await api.request('GET', route);
   assert.equal(unchanged.data.version, 2);
   assert.deepEqual(unchanged.data.selections[payer.memberId], []);

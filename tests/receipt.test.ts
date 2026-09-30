@@ -143,7 +143,7 @@ test('dates, tax percentages and arbitrary numeric metadata do not create items'
 });
 
 test('empty and unreadable text return an editable empty result', () => {
-  assert.deepEqual(parseReceipt(''), { items: [], total: 0, title: 'レシートの精算', rawText: '' });
+  assert.deepEqual(parseReceipt(''), { items: [], total: 0, title: '飲み会の割り勘', rawText: '' });
   assert.deepEqual(entries('***\n1234567890123\n¥900'), []);
 });
 

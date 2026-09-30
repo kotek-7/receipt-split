@@ -163,7 +163,7 @@ export function parseReceipt(text: string): ParsedReceipt {
   let pendingUnitTotal: number | undefined;
   let pendingQuantity: number | undefined;
   let precedingItem: ReceiptItem | undefined;
-  let title = 'レシートの精算';
+  let title = '飲み会の割り勘';
   let finishedItems = false;
 
   const setQuantity = (item: ReceiptItem, quantity: number | undefined) => {
@@ -250,7 +250,7 @@ export function parseReceipt(text: string): ParsedReceipt {
     } else if (/[\p{L}]/u.test(line) && line.length <= 100) {
       pendingQuantity = undefined;
       pending = line;
-      if (title === 'レシートの精算' && items.length === 0 && !DISCOUNT.test(line)) title = line;
+      if (title === '飲み会の割り勘' && items.length === 0 && !DISCOUNT.test(line)) title = line;
     } else {
       clearPending();
     }

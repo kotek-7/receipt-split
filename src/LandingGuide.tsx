@@ -1,4 +1,4 @@
-import { ArrowUp, CheckCheck, Coffee, Link, Pizza, ReceiptText } from 'lucide-react';
+import { ArrowUp, CheckCheck, Beer, Link, CookingPot, ReceiptText } from 'lucide-react';
 import './landing.css';
 
 const steps = [
@@ -6,23 +6,28 @@ const steps = [
     icon: ReceiptText,
     title: 'レシートを確認',
     description:
-      '立て替えた人が撮影・写真の選択・手入力から開始。品目と金額を確認し、自分を含む割り勘人数を入力します。',
+      '買い出し代や居酒屋の会計を立て替えた人が開始。レシートの数量・金額と、自分を含む割り勘人数を確認します。',
   },
   {
     icon: Link,
     title: 'リンクを共有',
     description:
-      '参加者はリンクを開いて名前を入力し、自分の品目や個数を選びます。立て替えた人も選択します。',
+      '飲み会のメンバーにリンクを送ります。それぞれが名前を入力し、飲んだもの・食べたものを選びます。立て替えた人も選びます。',
   },
   {
     icon: CheckCheck,
-    title: '金額を確定',
+    title: '返す金額を確認',
     description:
-      '全員が参加して入力を終え、すべての品目・個数の負担者が決まったら、立て替えた人が金額を確定します。',
+      '全員が選び終え、選び忘れや数の残りがなくなったら、立て替えた人が金額を確定。それぞれが表示された金額を返します。',
   },
 ];
 
 const questions = [
+  {
+    title: 'お酒を飲んでいない人も、お酒代を払う？',
+    answer:
+      '自分が飲んだもの・食べたものだけを選びます。お酒を選ばなければ、お酒代はかかりません。シェアした料理や食材も、それを選んだ人だけで分けます。',
+  },
   {
     title: '会員登録は必要ですか？',
     answer:
@@ -31,12 +36,12 @@ const questions = [
   {
     title: 'レシートがないときや、読み取りを間違えたときは？',
     answer:
-      '写真がなくても手入力で作成できます。読み取った品目・個数・金額は、共有リンクを作る前に確認して修正できます。',
+      '写真がなくても手入力で作成できます。読み取った名前・数量・金額は、共有リンクを作る前に確認して修正できます。',
   },
   {
     title: '税や値引き、割り切れない金額はどうなりますか？',
     answer:
-      '品目の合計と実際に払った総額の差は、各品目の金額に応じて配分します。端数を1円単位で調整し、すべての品目を割り当てると全員の負担額が総額に一致します。',
+      '入力した金額の合計と実際の会計額の差は、それぞれの料理・飲み物の金額に応じて分けます。端数は1円単位で調整し、すべて選び終えると全員の合計が会計額に一致します。',
   },
   {
     title: 'レシわけで送金できますか？',
@@ -44,9 +49,9 @@ const questions = [
       '送金機能はありません。表示された金額を現金や普段使っている決済サービスで返してください。立て替えた人は、受け取り済みかどうかを記録できます。',
   },
   {
-    title: '写真や精算内容は誰に見えますか？',
+    title: '写真や割り勘の内容は誰に見えますか？',
     answer:
-      '写真は端末内で読み取り、サーバーへ送信しません。品目・金額・参加者名などの精算内容は共有用に保存され、リンクを知っている人が閲覧できます。',
+      '写真は端末内で読み取り、サーバーへ送信しません。料理・飲み物の名前や金額、参加者名などの割り勘の内容は共有用に保存され、リンクを知っている人が閲覧できます。',
   },
 ];
 
@@ -54,55 +59,55 @@ export default function LandingGuide() {
   return (
     <div className="landing-guide">
       <section className="landing-section" aria-labelledby="split-examples-title">
-        <h2 id="split-examples-title">各自のものも、シェアするものも</h2>
+        <h2 id="split-examples-title">自分のドリンクも、分け合った料理も</h2>
         <p className="landing-section-intro">
-          品目ごとに分け方を選び、同じレシートでまとめて精算できます。
+          家飲みでも居酒屋でも、同じレシートの中で「各自」と「シェア」を選べます。
         </p>
         <div className="split-examples">
           <article className="split-example">
             <h3>
-              <Coffee size={22} aria-hidden="true" />
-              各自のもの
+              <Beer size={22} aria-hidden="true" />
+              各自
             </h3>
-            <p>それぞれが買った個数に応じて負担します。</p>
+            <p>自分のドリンクなどは、飲んだ数・食べた数で。</p>
             <div className="split-example-receipt receipt-edge">
               <div className="split-example-item">
-                <span>コーヒー 2杯</span>
-                <strong>¥1,000</strong>
+                <span>生ビール 3杯</span>
+                <strong>¥1,800</strong>
               </div>
-              <p>Aさんが1杯、Bさんが1杯</p>
+              <p>居酒屋で、Aさんが2杯・Bさんが1杯</p>
               <dl className="split-example-amounts">
                 <div>
                   <dt>Aさん</dt>
-                  <dd>¥500</dd>
+                  <dd>¥1,200</dd>
                 </div>
                 <div>
                   <dt>Bさん</dt>
-                  <dd>¥500</dd>
+                  <dd>¥600</dd>
                 </div>
               </dl>
             </div>
           </article>
           <article className="split-example">
             <h3>
-              <Pizza size={22} aria-hidden="true" />
-              シェアするもの
+              <CookingPot size={22} aria-hidden="true" />
+              シェア
             </h3>
-            <p>その品目を選んだ人だけで均等に分けます。</p>
+            <p>料理・食材・ボトルのお酒などは、一緒に飲食した人だけで均等に。</p>
             <div className="split-example-receipt receipt-edge">
               <div className="split-example-item">
-                <span>ピザ 1枚</span>
-                <strong>¥1,600</strong>
+                <span>鍋の食材</span>
+                <strong>¥2,400</strong>
               </div>
-              <p>AさんとBさんでシェア</p>
+              <p>家飲みの買い出し。AさんとBさんで食べたら</p>
               <dl className="split-example-amounts">
                 <div>
                   <dt>Aさん</dt>
-                  <dd>¥800</dd>
+                  <dd>¥1,200</dd>
                 </div>
                 <div>
                   <dt>Bさん</dt>
-                  <dd>¥800</dd>
+                  <dd>¥1,200</dd>
                 </div>
               </dl>
             </div>
@@ -141,7 +146,7 @@ export default function LandingGuide() {
       </section>
       <div className="landing-start">
         <a href="#start" className="button primary">
-          精算をはじめる
+          割り勘をはじめる
           <ArrowUp size={17} aria-hidden="true" />
         </a>
       </div>

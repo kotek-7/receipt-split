@@ -34,15 +34,15 @@ export default function ItemSelection({
         <span className="selection-item-name">{item.name}</span>
         <span className="selection-item-mode">
           {byQuantity
-            ? `全${getItemQuantity(item)}個 · 各自のもの`
-            : `${getItemQuantity(item) > 1 ? `全${getItemQuantity(item)}個 · ` : ''}シェアするもの`}
+            ? `各自 · 数量 ${getItemQuantity(item)}`
+            : `シェア · 数量 ${getItemQuantity(item)}`}
         </span>
         <span className="selection-item-members">
           {eaters.length
             ? byQuantity
               ? eaters
                   .map(
-                    (member) => `${member.name} ${getSelectionQuantity(room, member.id, item)}個`,
+                    (member) => `${member.name} × ${getSelectionQuantity(room, member.id, item)}`,
                   )
                   .join('・')
               : `${eaters.map((member) => member.name).join('・')}（${eaters.length}人で割り勘）`
@@ -79,22 +79,22 @@ export default function ItemSelection({
           className={`quantity-remaining ${allocation.unassignedQuantity > 0 ? 'pending' : ''}`}
         >
           {allocation.unassignedQuantity > 0
-            ? `あと${allocation.unassignedQuantity}個が未割当`
-            : `全${getItemQuantity(item)}個を割当済み`}
+            ? `残り ${allocation.unassignedQuantity}`
+            : 'すべて選択済み'}
         </span>
         <div className="quantity-stepper">
           <button
-            aria-label={`${item.name}の個数を減らす`}
+            aria-label={`${item.name}の数を減らす`}
             disabled={busy || room.closed || quantity === 0}
             onClick={() => onChange(quantity - 1)}
           >
             <Minus size={16} />
           </button>
           <span aria-live="polite" aria-atomic="true">
-            あなた <strong>{quantity}</strong> 個
+            あなた <strong>{quantity}</strong>
           </span>
           <button
-            aria-label={`${item.name}の個数を増やす`}
+            aria-label={`${item.name}の数を増やす`}
             disabled={busy || room.closed || allocation.unassignedQuantity === 0}
             onClick={() => onChange(quantity + 1)}
           >

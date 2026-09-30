@@ -59,8 +59,8 @@ const paidSchema = z.object({ memberId: z.string(), paid: z.boolean() }).strict(
 const roomRoute =
   /^\/api\/rooms\/([A-Za-z0-9_-]{32})(?:\/(members|selection|close|paid)(?:\/([A-Za-z0-9_-]{32}))?)?$/;
 const createError =
-  'タイトル・名前・明細を確認してください。割り勘人数は 1〜100 人、金額は 1 円以上、個数は 1〜999 の整数で入力してください。';
-const notFound = 'この精算が見つかりません。共有リンクを確認してください。';
+  '飲み会の名前・あなたの名前・レシートの内容を確認してください。割り勘人数は 1〜100 人、金額は 1 円以上、数量は 1〜999 の整数で入力してください。';
+const notFound = 'この割り勘が見つかりません。共有リンクを確認してください。';
 
 class ApiError extends Error {
   constructor(
@@ -194,7 +194,7 @@ export class ReceiptRoom extends DurableObject<Env> {
       .toArray();
     const memberId = rows[0]?.member_id;
     if (!memberId || !room.members.some((member) => member.id === memberId))
-      throw new ApiError(403, 'この精算の参加情報を確認できません。');
+      throw new ApiError(403, 'この割り勘の参加情報を確認できません。');
     if (payerOnly && memberId !== room.payerId)
       throw new ApiError(403, 'この操作は立て替えた人だけができます。');
     return memberId;
@@ -226,7 +226,7 @@ export class ReceiptRoom extends DurableObject<Env> {
         if (creating) {
           const input = parse(createSchema, body, createError);
           if (this.ctx.storage.sql.exec('SELECT id FROM rooms').toArray().length)
-            throw new ApiError(409, 'この精算はすでに作成されています。');
+            throw new ApiError(409, 'この割り勘はすでに作成されています。');
           const now = new Date().toISOString();
           const room: Room = {
             id: roomId,
@@ -262,14 +262,14 @@ export class ReceiptRoom extends DurableObject<Env> {
           if (room.closed)
             throw new ApiError(
               409,
-              'この精算は確定済みです。立て替えた人に再開をお願いしてください。',
+              'この割り勘は確定済みです。立て替えた人に再開をお願いしてください。',
             );
           if (room.members.some((member) => normalizedName(member.name) === normalizedName(name)))
             throw new ApiError(409, '同じ名前の人が参加しています。別の名前で参加してください。');
           if (room.participantCount !== undefined && room.members.length >= room.participantCount)
             throw new ApiError(
               409,
-              `この精算は定員の ${room.participantCount} 人が参加済みです。立て替えた人に確認してください。`,
+              `設定した ${room.participantCount} 人が参加済みです。立て替えた人に確認してください。`,
             );
           room.members.push({ id: identity!.memberId, name, done: false });
           room.selections[identity!.memberId] = [];
@@ -283,14 +283,14 @@ export class ReceiptRoom extends DurableObject<Env> {
 
         const memberId = this.authenticate(room, incomingHash, action !== 'selection');
         if (action === 'selection') {
-          const input = parse(selectionSchema, body, '選択した明細を確認してください。');
+          const input = parse(selectionSchema, body, '選んだ料理・飲み物と数を確認してください。');
           if (room.closed)
             throw new ApiError(
               409,
-              '精算が確定したため変更できません。立て替えた人に再開をお願いしてください。',
+              '割り勘が確定したため変更できません。立て替えた人に再開をお願いしてください。',
             );
           if (input.itemIds.some((id) => !room.items.some((item) => item.id === id)))
-            throw new ApiError(400, '見つからない明細が含まれています。画面を更新してください。');
+            throw new ApiError(400, 'レシートにない内容が選ばれています。画面を更新してください。');
           if (
             Object.keys(input.quantities ?? {}).some(
               (id) =>
@@ -298,7 +298,7 @@ export class ReceiptRoom extends DurableObject<Env> {
                 !room.items.some((item) => item.id === id && getItemSplitMode(item) === 'quantity'),
             )
           )
-            throw new ApiError(400, '個数は「各自のもの」で選んだ品目に入力してください。');
+            throw new ApiError(400, '数は「各自」で選んだ料理・飲み物に入力してください。');
           const quantities = Object.fromEntries(
             room.items
               .filter(
@@ -318,7 +318,7 @@ export class ReceiptRoom extends DurableObject<Env> {
                 if (quantity + otherQuantity > getItemQuantity(item))
                   throw new ApiError(
                     409,
-                    `「${item.name}」は購入数 ${getItemQuantity(item)} 個を超えています。ほかの人の選択を確認してください。`,
+                    `「${item.name}」はレシートの数量 ${getItemQuantity(item)} を超えています。ほかの人の入力を確認してください。`,
                   );
                 return [item.id, quantity];
               }),
@@ -328,22 +328,22 @@ export class ReceiptRoom extends DurableObject<Env> {
           room.selections[memberId] = input.itemIds;
           room.members.find((member) => member.id === memberId)!.done = input.done;
         } else if (action === 'close') {
-          const input = parse(closeSchema, body, '精算の状態を確認してください。');
+          const input = parse(closeSchema, body, '割り勘の状態を確認してください。');
           if (input.version !== room.version)
             throw new ApiError(
               409,
-              'ほかの人の選択が更新されました。最新の金額を確認して、もう一度操作してください。',
+              'ほかの人の入力が更新されました。最新の金額を確認して、もう一度操作してください。',
             );
           if (input.closed === room.closed) return room;
           if (input.closed && !calculateSettlement(room).ready)
             throw new ApiError(
               409,
-              '全員の参加・選択完了と、すべての明細・購入数の割り当てが必要です。',
+              '全員の参加・入力完了が必要です。料理・飲み物の選び忘れや、残っている数がないか確認してください。',
             );
           room.closed = input.closed;
           if (!input.closed) room.paidMemberIds = [];
         } else if (action === 'paid') {
-          const input = parse(paidSchema, body, '支払い済みにする人を確認してください。');
+          const input = parse(paidSchema, body, '受け取りを記録する人を確認してください。');
           if (!room.closed)
             throw new ApiError(409, '金額を確定してから、受け取りを記録してください。');
           if (
@@ -358,12 +358,12 @@ export class ReceiptRoom extends DurableObject<Env> {
           if (room.closed)
             throw new ApiError(
               409,
-              '精算が確定しています。選択を再開してから参加者を削除してください。',
+              '割り勘が確定したため参加者を削除できません。選択を再開してから操作してください。',
             );
           if (targetMemberId === room.payerId)
             throw new ApiError(400, '立て替えた人は削除できません。');
           if (!room.members.some((member) => member.id === targetMemberId))
-            throw new ApiError(404, '参加者が見つかりません。');
+            throw new ApiError(404, 'この参加者が見つかりません。画面を更新してください。');
           room.members = room.members.filter((member) => member.id !== targetMemberId);
           delete room.selections[targetMemberId];
           if (room.selectionQuantities) delete room.selectionQuantities[targetMemberId];
