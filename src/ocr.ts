@@ -62,7 +62,7 @@ export async function recognizeReceipt(
     report(5);
     if (reader === 'ai') {
       if (image.size > 8 * 1024 * 1024)
-        throw new Error('画像が大きすぎます。端末内で読み取るか、撮り直してください。');
+        throw new Error('画像が大きすぎます。小さい画像を選ぶか、撮り直してください。');
       const response = await fetch('/api/receipt-scan', {
         method: 'POST',
         headers: { 'Content-Type': image.type },
@@ -71,7 +71,7 @@ export async function recognizeReceipt(
       });
       const result = (await response.json()) as { receipt?: ParsedReceipt; error?: string };
       if (!response.ok || !result.receipt)
-        throw new Error(result.error || '読み取れませんでした。端末内で読み取ってください。');
+        throw new Error(result.error || '読み取れませんでした。もう一度お試しください。');
       signal.throwIfAborted();
       report(100);
       return { receipt: result.receipt, preview: image };
@@ -110,7 +110,7 @@ export async function recognizeReceipt(
     signal.throwIfAborted();
     if (error instanceof Error && /[\u3040-\u30ff\u3400-\u9fff]/.test(error.message)) throw error;
     if (reader === 'ai')
-      throw new Error('読み取れませんでした。もう一度試すか、端末内で読み取ってください。', {
+      throw new Error('読み取れませんでした。もう一度試すか、手入力で続けてください。', {
         cause: error,
       });
     throw new Error(

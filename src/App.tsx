@@ -88,7 +88,6 @@ export default function App() {
   const [help, setHelp] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [readerReady, setReaderReady] = useState(false);
-  const [aiAvailable, setAiAvailable] = useState(false);
   const [reader, setReader] = useState<ReceiptReader>('local');
   const [retryPhoto, setRetryPhoto] = useState<File>();
   const activeScan = useRef<AbortController | null>(null);
@@ -101,7 +100,6 @@ export default function App() {
       .then(async (response) => (response.ok ? response.json() : { ai: false }))
       .then((result: { ai?: boolean }) => {
         if (controller.signal.aborted) return;
-        setAiAvailable(result.ai === true);
         setReader(result.ai === true ? 'ai' : 'local');
       })
       .catch(() => {})
@@ -143,7 +141,7 @@ export default function App() {
     setError('');
     window.scrollTo(0, 0);
   };
-  const importPhoto = async (file?: File, method: ReceiptReader = reader) => {
+  const importPhoto = async (file?: File) => {
     if (!file || activeScan.current || !readerReady) return;
     const controller = new AbortController();
     activeScan.current = controller;
@@ -159,7 +157,7 @@ export default function App() {
         file,
         setScan,
         controller.signal,
-        method,
+        reader,
       );
       if (controller.signal.aborted) return;
       setPhoto(URL.createObjectURL(preview));
@@ -171,7 +169,7 @@ export default function App() {
     } catch (e) {
       if (!controller.signal.aborted) {
         setError(errorText(e));
-        if (method === 'ai') setRetryPhoto(file);
+        setRetryPhoto(file);
       }
     } finally {
       if (activeScan.current === controller) {
@@ -269,29 +267,6 @@ export default function App() {
             </section>
             <section className="start-card" id="start">
               <h2>割り勘をはじめる</h2>
-              {aiAvailable && (
-                <fieldset className="reader-choice" disabled={scan !== null}>
-                  <legend className="sr-only">写真の読み取り方法</legend>
-                  <label>
-                    <input
-                      type="radio"
-                      name="reader"
-                      checked={reader === 'ai'}
-                      onChange={() => setReader('ai')}
-                    />
-                    AIで読み取る
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="reader"
-                      checked={reader === 'local'}
-                      onChange={() => setReader('local')}
-                    />
-                    端末内で読み取る
-                  </label>
-                </fieldset>
-              )}
               <div className="privacy-note">
                 <LockKeyhole size={13} aria-hidden="true" />
                 {!readerReady
@@ -364,12 +339,9 @@ export default function App() {
               {retryPhoto && scan === null && (
                 <button
                   className="button secondary full"
-                  onClick={() => {
-                    setReader('local');
-                    void importPhoto(retryPhoto, 'local');
-                  }}
+                  onClick={() => void importPhoto(retryPhoto)}
                 >
-                  この写真を端末内で読み取る
+                  もう一度読み取る
                 </button>
               )}
               <div className="alternative">

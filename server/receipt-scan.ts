@@ -142,10 +142,7 @@ export async function scanReceiptRequest(
 ): Promise<Response> {
   const controller = new AbortController();
   const cancelled = new ScanError(499, '読み取りを中止しました。');
-  const timedOut = new ScanError(
-    504,
-    '読み取りに時間がかかっています。もう一度試すか、端末内で読み取ってください。',
-  );
+  const timedOut = new ScanError(504, '読み取りに時間がかかっています。もう一度お試しください。');
   const onAbort = () => controller.abort(cancelled);
   request.signal.addEventListener('abort', onAbort, { once: true });
   if (request.signal.aborted) onAbort();
@@ -157,7 +154,10 @@ export async function scanReceiptRequest(
   try {
     checkOrigin(request);
     if (!options.run)
-      throw new ScanError(503, '画像の読み取りを利用できません。端末内で読み取ってください。');
+      throw new ScanError(
+        503,
+        '画像を読み取れません。時間をおいて試すか、手入力で続けてください。',
+      );
     controller.signal.throwIfAborted();
     if (options.allow && !(await options.allow()))
       throw new ScanError(429, '続けて読み取る場合は、1分ほど待ってください。');
@@ -176,7 +176,7 @@ export async function scanReceiptRequest(
     if (error instanceof ScanError) return json({ error: error.message }, error.status);
     if (error instanceof ReceiptExtractionError) return json({ error: error.message }, 422);
     return json(
-      { error: '画像を読み取れませんでした。もう一度試すか、端末内で読み取ってください。' },
+      { error: '画像を読み取れませんでした。もう一度試すか、手入力で続けてください。' },
       502,
     );
   } finally {

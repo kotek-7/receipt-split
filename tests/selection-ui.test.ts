@@ -104,8 +104,10 @@ async function mountApp(
   const payments: { memberId: string; paid: boolean }[] = [];
   const selectionFailures = new Map<number, string>();
   let selectionWait: Promise<void> | undefined;
+  const scanRequests: Blob[] = [];
+  const scanFailures: string[] = [];
   let receiptRead: (() => void) | undefined;
-  const scanned = new Promise<void>((resolve) => {
+  let scanned = new Promise<void>((resolve) => {
     receiptRead = resolve;
   });
   if (initialRoom && signedIn)
@@ -118,7 +120,14 @@ async function mountApp(
     }
     if (path === '/api/receipt-scan' && init?.method === 'POST') {
       assert.ok(scannedReceipt, 'photo recognition must have a mocked AI receipt');
+      assert.ok(init.body instanceof Blob);
+      scanRequests.push(init.body);
       receiptRead?.();
+      scanned = new Promise<void>((resolve) => {
+        receiptRead = resolve;
+      });
+      const error = scanFailures.shift();
+      if (error) return Response.json({ error }, { status: 502 });
       return Response.json({ receipt: scannedReceipt });
     }
     if (path === '/api/rooms' && init?.method === 'POST') {
@@ -256,14 +265,26 @@ async function mountApp(
     button,
     tile,
     radio,
+    scanRequests,
+    failNextScan(message: string) {
+      scanFailures.push(message);
+    },
+    async retryPhoto() {
+      const pending = scanned;
+      await act(async () => {
+        button('もう一度読み取る').click();
+        await pending;
+      });
+    },
     async uploadPhoto(file: File) {
       const area = host.querySelector('.upload-area');
       assert.ok(area, 'photo upload must be visible');
       const event = new window.Event('drop', { bubbles: true });
       Object.defineProperty(event, 'dataTransfer', { value: { files: [file] } });
+      const pending = scanned;
       await act(async () => {
         area.dispatchEvent(event);
-        await scanned;
+        await pending;
       });
     },
     updateRoom(update: (room: Room) => void) {
@@ -329,16 +350,42 @@ async function mountApp(
   };
 }
 
-test('AI photo upload is disclosed before choosing a photo and can be switched off', async (t) => {
+/** Keep recognition deterministic while exercising the real photo-upload and AI request flow. */
+function mockReceiptPhoto(t: TestContext, window: Window) {
+  const decodedFiles: File[] = [];
+  const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
+  Object.defineProperty(globalThis, 'createImageBitmap', {
+    configurable: true,
+    value: async (file: File) => {
+      decodedFiles.push(file);
+      return { close() {} };
+    },
+  });
+  t.after(() => {
+    if (originalBitmap) Object.defineProperty(globalThis, 'createImageBitmap', originalBitmap);
+    else Reflect.deleteProperty(globalThis, 'createImageBitmap');
+  });
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY1sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const preview = new Blob([png], { type: 'image/png' });
+  t.mock.method(window.HTMLCanvasElement.prototype, 'getContext', () => ({
+    fillRect() {},
+    drawImage() {},
+    getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+  }));
+  t.mock.method(window.HTMLCanvasElement.prototype, 'toBlob', (callback: BlobCallback) =>
+    callback(preview),
+  );
+  return { file: new File([png], 'receipt.png', { type: 'image/png' }), decodedFiles };
+}
+
+test('photo upload is disclosed before choosing a photo without a reader choice', async (t) => {
   const app = await mountApp(t, undefined, true, true);
-  const choices = app.host.querySelectorAll<HappyInput>('input[name="reader"]');
-  assert.equal(choices.length, 2);
-  assert.equal(choices[0].checked, true);
+  assert.equal(app.host.querySelectorAll('input[name="reader"]').length, 0);
   assert.match(app.host.querySelector('.privacy-note')!.textContent, /Cloudflareに送信/);
   assert.equal(app.button('写真から選ぶ').disabled, false);
-  await act(async () => choices[1].click());
-  assert.equal(choices[1].checked, true);
-  assert.match(app.host.querySelector('.privacy-note')!.textContent, /端末から送信しません/);
 });
 
 test('unavailable AI and a failed capability request keep local photo reading usable', async (t) => {
@@ -351,6 +398,38 @@ test('unavailable AI and a failed capability request keep local photo reading us
     });
   }
 });
+
+test(
+  'retry reads the same photo through AI without asking for a reading method',
+  { timeout: 5000 },
+  async (t) => {
+    const receipt: ParsedReceipt = {
+      title: '夕食',
+      total: 600,
+      rawText: '',
+      items: [{ id: 'drink', name: 'ビール', amount: 600, quantity: 1, splitMode: 'quantity' }],
+    };
+    const app = await mountApp(t, undefined, true, true, receipt);
+    const { file, decodedFiles } = mockReceiptPhoto(t, app.window);
+    app.failNextScan('読み取れませんでした。もう一度お試しください。');
+    await app.uploadPhoto(file);
+    assert.equal(app.scanRequests.length, 1);
+    assert.match(app.host.querySelector('[role="alert"]')!.textContent, /読み取れませんでした/);
+    assert.equal(app.host.querySelectorAll('input[name="reader"]').length, 0);
+    assert.equal(app.button('もう一度読み取る').disabled, false);
+    await app.retryPhoto();
+    assert.equal(app.scanRequests.length, 2, 'retry must use the AI endpoint again');
+    assert.ok(decodedFiles.length > 0);
+    assert.ok(decodedFiles.every((decoded) => decoded === file));
+    assert.deepEqual(
+      await app.scanRequests[0].arrayBuffer(),
+      await app.scanRequests[1].arrayBuffer(),
+    );
+    assert.ok(app.host.querySelector('.photo-panel img'));
+    assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '600');
+    assert.equal(app.host.querySelector('[role="alert"]'), null);
+  },
+);
 
 test(
   'editing and deleting AI receipt rows preserve the printed payment total',
@@ -366,29 +445,8 @@ test(
       ],
     };
     const app = await mountApp(t, undefined, true, true, receipt);
-    const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
-    Object.defineProperty(globalThis, 'createImageBitmap', {
-      configurable: true,
-      value: async () => ({ close() {} }),
-    });
-    t.after(() => {
-      if (originalBitmap) Object.defineProperty(globalThis, 'createImageBitmap', originalBitmap);
-      else Reflect.deleteProperty(globalThis, 'createImageBitmap');
-    });
-    const png = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY1sAAAAASUVORK5CYII=',
-      'base64',
-    );
-    const preview = new Blob([png], { type: 'image/png' });
-    t.mock.method(app.window.HTMLCanvasElement.prototype, 'getContext', () => ({
-      fillRect() {},
-      drawImage() {},
-      getImageData: () => ({ data: new Uint8ClampedArray(4) }),
-    }));
-    t.mock.method(app.window.HTMLCanvasElement.prototype, 'toBlob', (callback: BlobCallback) =>
-      callback(preview),
-    );
-    await app.uploadPhoto(new File([png], 'receipt.png', { type: 'image/png' }));
+    const { file } = mockReceiptPhoto(t, app.window);
+    await app.uploadPhoto(file);
     assert.ok(app.host.querySelector('.photo-panel img'), 'AI receipt keeps its photo preview');
     assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
     await app.input('input[aria-label="1行目の合計金額"]', '1000');
