@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>評価画像の準備</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #27272a;
+        background: #fafafa;
+      }
+      body {
+        max-width: 680px;
+        margin: 64px auto;
+        padding: 0 24px;
+      }
+      h1 {
+        font-size: 26px;
+        margin-bottom: 16px;
+      }
+      p {
+        line-height: 1.7;
+      }
+      button {
+        min-height: 48px;
+        padding: 10px 20px;
+        margin: 16px 0;
+        font: inherit;
+        font-weight: 600;
+        border: 1px solid #bd3425;
+        border-radius: 8px;
+        color: #fff;
+        background: #bd3425;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      progress {
+        display: block;
+        width: 100%;
+        height: 20px;
+        accent-color: #bd3425;
+      }
+      #status {
+        min-height: 28px;
+        font-weight: 600;
+      }
+      #destination {
+        color: #52525b;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+      #errors {
+        padding-left: 24px;
+        color: #a62424;
+      }
+      #errors li {
+        margin: 8px 0;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>評価画像の準備</h1>
+    <p>本番と同じ切り抜きとPNG変換を適用します。画像と正解データは画面に表示しません。</p>
+    <button id="prepare" disabled>評価画像を準備</button>
+    <progress id="progress" value="0" max="1" aria-label="準備した画像の枚数"></progress>
+    <p id="status" role="status" aria-live="polite">評価対象を確認しています。</p>
+    <p id="destination"></p>
+    <ul id="errors" aria-label="準備できなかった画像"></ul>
+    <script type="module">
+      import { prepareReceiptImage } from '/src/prepare-image.ts';
+
+      const button = document.querySelector('#prepare');
+      const progress = document.querySelector('#progress');
+      const status = document.querySelector('#status');
+      const destination = document.querySelector('#destination');
+      const errors = document.querySelector('#errors');
+      let current;
+      let running = false;
+
+      async function responseJson(response) {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+        return data;
+      }
+      async function refresh() {
+        current = await responseJson(
+          await fetch('/__receipt_prepare/session', { cache: 'no-store' }),
+        );
+        progress.max = current.total;
+        progress.value = current.prepared;
+        destination.textContent = current.outputManifest;
+        errors.replaceChildren();
+        for (const entry of current.errors) {
+          const item = document.createElement('li');
+          item.textContent = `${entry.id}: ${entry.error}`;
+          errors.append(item);
+        }
+        status.textContent = current.completed
+          ? `準備完了：${current.prepared} / ${current.total}枚`
+          : `${current.prepared} / ${current.total}枚を準備済み${current.errors.length ? `、エラー${current.errors.length}件` : ''}`;
+        button.disabled = running || current.completed;
+      }
+      button.addEventListener('click', async () => {
+        if (running || !current || current.completed) return;
+        running = true;
+        button.disabled = true;
+        const session = current.session;
+        const finished = new Set(current.completedIds);
+        try {
+          for (const [index, fixture] of current.fixtures.entries()) {
+            if (finished.has(fixture.id)) continue;
+            status.textContent = `${index + 1} / ${current.total}枚目を準備しています。`;
+            try {
+              const source = await fetch(fixture.url, { cache: 'no-store' });
+              if (!source.ok)
+                throw new Error((await source.json()).error ?? `HTTP ${source.status}`);
+              const original = await source.blob();
+              const file = new File([original], `receipt-${index + 1}`, { type: original.type });
+              const png = await prepareReceiptImage(file);
+              await responseJson(
+                await fetch(`/__receipt_prepare/image?id=${encodeURIComponent(fixture.id)}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'image/png', 'X-Preparation-Session': session },
+                  body: png,
+                }),
+              );
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              try {
+                await responseJson(
+                  await fetch(`/__receipt_prepare/failure?id=${encodeURIComponent(fixture.id)}`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Preparation-Session': session,
+                    },
+                    body: JSON.stringify({ error: message }),
+                  }),
+                );
+              } catch {
+                const item = document.createElement('li');
+                item.textContent = `${fixture.id}: ${message}`;
+                errors.append(item);
+                throw new Error('保存先と通信できませんでした。サーバーの状態を確認してください。');
+              }
+            }
+            await refresh();
+          }
+        } catch (error) {
+          status.textContent = error instanceof Error ? error.message : String(error);
+        } finally {
+          running = false;
+          button.disabled = current.completed;
+        }
+      });
+      refresh().catch((error) => {
+        status.textContent = error instanceof Error ? error.message : String(error);
+      });
+    </script>
+  </body>
+</html>

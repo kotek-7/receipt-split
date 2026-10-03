@@ -32,7 +32,15 @@
 
 ## 実行
 
-依存関係をインストール済みのリポジトリで実行します。画像の縮小には Python 3 と Pillow が必要です。画像をすでに準備している場合、最初のコマンドは省略できます。
+依存関係をインストール済みのリポジトリで実行します。アプリと同じ紙面検出・切り抜き・PNG 変換を使う場合は次のローカルサーバーを起動し、表示された URL で「評価画像を準備」を押します。画像も正解も外部へ送信しません。
+
+```sh
+node --import tsx scripts/receipt-eval/prepare-browser.mjs artifacts/receipt-datasets/jawildtext/manifest.json --output /tmp/receipts-browser --port 4319
+```
+
+元画像は manifest に登録されたものだけを読み、全件成功した後に準備済み manifest を作成します。元画像と出力画像、前処理のソース、ブラウザーの情報を記録し、既存の出力先は上書きしません。元の GT と dev / holdout 分割は変えません。処理が終わったらサーバーを終了できます。
+
+紙面を切り抜かず、縮小だけで比較する場合は Python 3 と Pillow も使用できます。こちらの結果はブラウザーの前処理と区別してください。
 
 ```sh
 python3 scripts/receipt-eval/prepare.py /tmp/receipts/manifest.json --output /tmp/receipts-prepared
@@ -78,6 +86,6 @@ node --import tsx scripts/receipt-eval/run-ai.mjs /tmp/receipts-prepared/manifes
 
 baseline は Tesseract.js、日本語＋英語、OEM 1、PSM 6、空白保持、DPI 300 です。`prepare.py` の既定値はアプリと同じ長辺 3,200 px・192 万画素ですが、Pillow の LANCZOS とブラウザーの画像縮小は画素単位では一致しません。
 
-この runner は **ブラウザーの紙面検出・切り抜きを通しません**。画像を縮小するだけなので、背景を含む写真でアプリと同じ結果を保証しません。EXIF の向きと透過画像の白背景は処理しますが、透視変換や追加の補正は行いません。端末のカメラ、ブラウザーでの前処理、モバイルでの実行時間は別途確認が必要です。少数の特定店舗・言語の画像で得た結果を、日本語レシート全般の精度として扱わないでください。
+`prepare.py` は **ブラウザーの紙面検出・切り抜きを通しません**。EXIF の向きと透過画像の白背景は処理しますが、画像を縮小するだけなので、背景を含む写真でアプリと同じ結果を保証しません。`prepare-browser.mjs` は実際のアプリの前処理を呼び出しますが、カメラによる撮影やモバイルでの処理時間は別途確認が必要です。どちらも、少数の特定店舗の結果を日本語レシート全般の精度として扱わないでください。
 
 通常の `npm test` では評価関数だけをテストし、モデルのダウンロードや第三者画像の OCR は実行しません。
