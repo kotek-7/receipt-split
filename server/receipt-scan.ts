@@ -8,6 +8,7 @@ import {
   RECEIPT_IMAGE_MAX_EDGE,
   RECEIPT_IMAGE_MAX_PIXELS,
 } from '../shared/image-dimensions';
+import type { ReceiptScanEvent } from '../shared/receipt-progress';
 
 export const RECEIPT_SCAN_MAX_BYTES = 8 * 1024 * 1024;
 export const RECEIPT_SCAN_TIMEOUT_MS = 45_000;
@@ -31,14 +32,31 @@ async function runWithOneRetry(
   run: ReceiptAiRunner,
   input: ReceiptAiInput,
   signal: AbortSignal,
+  onAttempt?: (attempt: number) => void,
 ): Promise<unknown> {
   signal.throwIfAborted();
+  onAttempt?.(1);
   try {
     return await run(input, signal);
   } catch (error) {
     signal.throwIfAborted();
     if (!(error instanceof RetryableReceiptAiError)) throw error;
+    onAttempt?.(2);
     return run(input, signal);
+  }
+}
+
+async function untilAborted<T>(job: Promise<T>, signal: AbortSignal): Promise<T> {
+  let onAbort: () => void = () => {};
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+  try {
+    return await Promise.race([job, aborted]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
   }
 }
 
@@ -49,6 +67,18 @@ class ScanError extends Error {
   ) {
     super(message);
   }
+}
+
+function failure(error: unknown): Extract<ReceiptScanEvent, { type: 'error' }> {
+  if (error instanceof ScanError)
+    return { type: 'error', error: error.message, status: error.status };
+  if (error instanceof ReceiptExtractionError)
+    return { type: 'error', error: error.message, status: 422 };
+  return {
+    type: 'error',
+    error: '画像を読み取れませんでした。もう一度試すか、手入力で続けてください。',
+    status: 502,
+  };
 }
 
 function json(value: unknown, status = 200): Response {
@@ -150,7 +180,11 @@ export async function scanReceiptRequest(
     () => controller.abort(timedOut),
     options.timeoutMs ?? RECEIPT_SCAN_TIMEOUT_MS,
   );
-  let abortHandler: (() => void) | undefined;
+  const cleanup = () => {
+    clearTimeout(timer);
+    request.signal.removeEventListener('abort', onAbort);
+  };
+  let streaming = false;
   try {
     checkOrigin(request);
     if (!options.run)
@@ -159,29 +193,70 @@ export async function scanReceiptRequest(
         '画像を読み取れません。時間をおいて試すか、手入力で続けてください。',
       );
     controller.signal.throwIfAborted();
-    if (options.allow && !(await options.allow()))
+    if (options.allow && !(await untilAborted(options.allow(), controller.signal)))
       throw new ScanError(429, '続けて読み取る場合は、1分ほど待ってください。');
     const { bytes, mime } = await imageBytes(request, controller.signal);
-    const aborted = new Promise<never>((_resolve, reject) => {
-      abortHandler = () => reject(controller.signal.reason);
-      controller.signal.addEventListener('abort', abortHandler, { once: true });
-      if (controller.signal.aborted) abortHandler();
-    });
-    const response = await Promise.race([
-      runWithOneRetry(options.run, buildReceiptAiInput(dataUrl(bytes, mime)), controller.signal),
-      aborted,
-    ]);
-    return json({ receipt: parseReceiptAiResponse(response) });
+    const input = buildReceiptAiInput(dataUrl(bytes, mime));
+    const run = options.run;
+    const readReceipt = async (emit?: (event: ReceiptScanEvent) => void) => {
+      const response = await untilAborted(
+        runWithOneRetry(run, input, controller.signal, (attempt) =>
+          emit?.({ type: 'progress', stage: 'reading', attempt }),
+        ),
+        controller.signal,
+      );
+      controller.signal.throwIfAborted();
+      emit?.({ type: 'progress', stage: 'checking' });
+      return parseReceiptAiResponse(response);
+    };
+    const acceptsProgress = request.headers
+      .get('Accept')
+      ?.split(',')
+      .some((value) => value.split(';')[0].trim().toLowerCase() === 'application/x-ndjson');
+    if (acceptsProgress) {
+      let open = true;
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) {
+          const emit = (event: ReceiptScanEvent) => {
+            if (open) stream.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+          };
+          void (async () => {
+            try {
+              emit({ type: 'result', receipt: await readReceipt(emit) });
+            } catch (error) {
+              emit(failure(error));
+            } finally {
+              if (open) {
+                open = false;
+                stream.close();
+              }
+              cleanup();
+            }
+          })();
+        },
+        cancel() {
+          open = false;
+          controller.abort(cancelled);
+          cleanup();
+        },
+      });
+      const response = new Response(body, {
+        headers: {
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+      streaming = true;
+      return response;
+    }
+    return json({ receipt: await readReceipt() });
   } catch (error) {
-    if (error instanceof ScanError) return json({ error: error.message }, error.status);
-    if (error instanceof ReceiptExtractionError) return json({ error: error.message }, 422);
-    return json(
-      { error: '画像を読み取れませんでした。もう一度試すか、手入力で続けてください。' },
-      502,
-    );
+    const result = failure(error);
+    return json({ error: result.error }, result.status);
   } finally {
-    clearTimeout(timer);
-    request.signal.removeEventListener('abort', onAbort);
-    if (abortHandler) controller.signal.removeEventListener('abort', abortHandler);
+    // The response body owns cleanup after it starts; its work outlives this function.
+    if (!streaming) cleanup();
   }
 }

@@ -193,14 +193,18 @@ export async function createApp({ dbPath, serveFrontend = false, receiptScan = {
     },
     async (request, response) => {
       const controller = new AbortController();
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       const onClose = () => {
-        if (!response.writableEnded) controller.abort();
+        if (!response.writableEnded) {
+          controller.abort();
+          void reader?.cancel().catch(() => undefined);
+        }
       };
       request.once('aborted', onClose);
       response.once('close', onClose);
       try {
         const headers = new Headers();
-        for (const name of ['Origin', 'Content-Type', 'Sec-Fetch-Site']) {
+        for (const name of ['Origin', 'Content-Type', 'Sec-Fetch-Site', 'Accept']) {
           const value = request.get(name);
           if (value) headers.set(name, value);
         }
@@ -218,8 +222,21 @@ export async function createApp({ dbPath, serveFrontend = false, receiptScan = {
         );
         const result = await scanReceiptRequest(scanRequest, receiptScan);
         result.headers.forEach((value, name) => response.set(name, value));
-        response.status(result.status).send(await result.text());
+        response.status(result.status);
+        if (result.body) {
+          reader = result.body.getReader();
+          response.flushHeaders();
+          // A scan emits only a handful of bounded events; forward each immediately.
+          while (!response.destroyed && !controller.signal.aborted) {
+            const { done, value } = await reader.read();
+            if (done || response.destroyed) break;
+            response.write(value);
+          }
+        }
+        if (!response.destroyed) response.end();
       } finally {
+        await reader?.cancel().catch(() => undefined);
+        reader?.releaseLock();
         request.off('aborted', onClose);
         response.off('close', onClose);
       }

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
-import { test } from 'node:test';
+import { getEventListeners, once } from 'node:events';
+import { test, type TestContext } from 'node:test';
 import { createApp } from '../server/app';
+import type { ReceiptScanEvent } from '../shared/receipt-progress';
 import {
   RetryableReceiptAiError,
   scanReceiptRequest,
   RECEIPT_SCAN_MAX_BYTES,
+  type ReceiptScanOptions,
 } from '../server/receipt-scan';
 
 const origin = 'https://example.test';
@@ -39,6 +41,49 @@ function request(
     body: new Uint8Array(body),
     signal,
   });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+
+const progressHeaders = { Accept: 'application/x-ndjson' };
+function events(text: string): ReceiptScanEvent[] {
+  return text
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+}
+async function remainingEvents(reader: ReadableStreamDefaultReader<Uint8Array>) {
+  const decoder = new TextDecoder();
+  let text = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += decoder.decode(value, { stream: true });
+  }
+  return events(text + decoder.decode());
+}
+
+async function startExpress(t: TestContext, receiptScan: ReceiptScanOptions) {
+  const app = await createApp({ dbPath: ':memory:', receiptScan });
+  const server = app.app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  t.after(async () => {
+    server.closeAllConnections();
+    server.close();
+    await once(server, 'close');
+    await app.close();
+  });
+  return `http://127.0.0.1:${address.port}`;
 }
 
 test('scan accepts a bounded prepared image and returns only the validated draft', async () => {
@@ -274,4 +319,278 @@ test('Express advertises unavailable AI and supports an injected provider throug
       await app.close();
     }
   }
+});
+
+test(
+  'JSON callers still wait for the validated result rather than receiving progress',
+  { timeout: 2000 },
+  async () => {
+    const started = deferred<void>();
+    const model = deferred<unknown>();
+    let completed = false;
+    const pending = scanReceiptRequest(request(), {
+      run: async () => {
+        started.resolve();
+        return model.promise;
+      },
+    }).then((response) => {
+      completed = true;
+      return response;
+    });
+    await started.promise;
+    assert.equal(completed, false);
+    model.resolve(output);
+    const response = await pending;
+    assert.match(response.headers.get('Content-Type')!, /^application\/json/);
+    assert.equal((await response.json()).receipt.total, 1800);
+  },
+);
+
+test(
+  'NDJSON reading arrives before a delayed model, then checking and a validated result',
+  { timeout: 2000 },
+  async (t) => {
+    const model = deferred<unknown>();
+    const req = request(png, progressHeaders);
+    const initialListeners = getEventListeners(req.signal, 'abort').length;
+    let providerSignal: AbortSignal | undefined;
+    const response = await scanReceiptRequest(req, {
+      run: async (_input, signal) => {
+        providerSignal = signal;
+        return model.promise;
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('Content-Type')!, /^application\/x-ndjson/);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    const reader = response.body!.getReader();
+    t.after(() => reader.cancel());
+    const first = await reader.read();
+    assert.deepEqual(events(new TextDecoder().decode(first.value)), [
+      { type: 'progress', stage: 'reading', attempt: 1 },
+    ]);
+    assert.equal(
+      providerSignal?.aborted,
+      false,
+      'returning the response must not cancel the model',
+    );
+    model.resolve(output);
+    const rest = await remainingEvents(reader);
+    assert.deepEqual(rest[0], { type: 'progress', stage: 'checking' });
+    assert.equal(rest.length, 2);
+    assert.equal(rest[1].type, 'result');
+    if (rest[1].type === 'result') {
+      assert.equal(rest[1].receipt.total, 1800);
+      assert.equal(rest[1].receipt.rawText, '');
+    }
+    assert.equal(getEventListeners(req.signal, 'abort').length, initialListeners);
+  },
+);
+
+test('NDJSON retry progress appears only when the second provider attempt starts', async () => {
+  let calls = 0;
+  const response = await scanReceiptRequest(request(png, progressHeaders), {
+    run: async () => {
+      if (++calls === 1) throw new RetryableReceiptAiError();
+      return output;
+    },
+  });
+  const result = events(await response.text());
+  assert.equal(calls, 2);
+  assert.deepEqual(result.slice(0, 3), [
+    { type: 'progress', stage: 'reading', attempt: 1 },
+    { type: 'progress', stage: 'reading', attempt: 2 },
+    { type: 'progress', stage: 'checking' },
+  ]);
+  assert.equal(result[3].type, 'result');
+});
+
+test('NDJSON invalid output and failed providers end with one sanitized error', async () => {
+  for (const kind of ['invalid', 'provider', 'retry'] as const) {
+    let calls = 0;
+    const response = await scanReceiptRequest(request(png, progressHeaders), {
+      run: async () => {
+        calls++;
+        if (kind === 'provider') throw new Error('private-provider-secret');
+        if (kind === 'retry') throw new RetryableReceiptAiError();
+        return { choices: [{ message: { content: 'private-model-content' } }] };
+      },
+    });
+    const text = await response.text();
+    const result = events(text);
+    assert.equal(response.status, 200);
+    assert.equal(calls, kind === 'retry' ? 2 : 1);
+    assert.equal(result.filter((event) => event.type === 'error').length, 1);
+    assert.equal(result.filter((event) => event.type === 'result').length, 0);
+    assert.equal(result.at(-1)?.type, 'error');
+    assert.equal(
+      (result.at(-1) as Extract<ReceiptScanEvent, { type: 'error' }>).status,
+      kind === 'invalid' ? 422 : 502,
+    );
+    assert.equal(
+      result.some((event) => event.type === 'progress' && event.stage === 'checking'),
+      kind === 'invalid',
+    );
+    assert.doesNotMatch(
+      text,
+      /private-model-content|private-provider-secret|RetryableReceiptAiError/,
+    );
+  }
+});
+
+test('NDJSON validation failures remain ordinary JSON before progress starts', async () => {
+  for (const [req, options, expected] of [
+    [request(png, { ...progressHeaders, Origin: 'https://foreign.test' }), {}, 403],
+    [request(new Uint8Array([1, 2]), progressHeaders), {}, 400],
+    [request(png, progressHeaders), { allow: async () => false }, 429],
+  ] as const) {
+    const response = await scanReceiptRequest(req, {
+      ...options,
+      run: async () => {
+        assert.fail('validation must complete before invoking the model');
+      },
+    });
+    assert.equal(response.status, expected);
+    assert.match(response.headers.get('Content-Type')!, /^application\/json/);
+    assert.deepEqual(Object.keys(await response.json()), ['error']);
+  }
+});
+
+test(
+  'NDJSON keeps the deadline after returning its response and aborts a stalled provider',
+  { timeout: 2000 },
+  async () => {
+    let providerSignal: AbortSignal | undefined;
+    const response = await scanReceiptRequest(request(png, progressHeaders), {
+      timeoutMs: 20,
+      run: async (_input, signal) => {
+        providerSignal = signal;
+        return new Promise(() => {});
+      },
+    });
+    const result = events(await response.text());
+    assert.equal(providerSignal?.aborted, true);
+    assert.equal(result.length, 2);
+    assert.deepEqual(result[0], { type: 'progress', stage: 'reading', attempt: 1 });
+    assert.equal(result[1].type, 'error');
+    if (result[1].type === 'error') assert.equal(result[1].status, 504);
+  },
+);
+
+test(
+  'NDJSON request abort ends the stream and cancels the provider',
+  { timeout: 2000 },
+  async () => {
+    const controller = new AbortController();
+    let providerSignal: AbortSignal | undefined;
+    const response = await scanReceiptRequest(request(png, progressHeaders, controller.signal), {
+      run: async (_input, signal) => {
+        providerSignal = signal;
+        return new Promise(() => {});
+      },
+    });
+    controller.abort();
+    const result = events(await response.text());
+    assert.equal(providerSignal?.aborted, true);
+    assert.equal(result.at(-1)?.type, 'error');
+    assert.equal((result.at(-1) as Extract<ReceiptScanEvent, { type: 'error' }>).status, 499);
+  },
+);
+
+test(
+  'cancelling the NDJSON body aborts the provider and prevents a later retry',
+  { timeout: 2000 },
+  async () => {
+    const model = deferred<unknown>();
+    const req = request(png, progressHeaders);
+    const initialListeners = getEventListeners(req.signal, 'abort').length;
+    let providerSignal: AbortSignal | undefined;
+    let calls = 0;
+    const response = await scanReceiptRequest(req, {
+      run: async (_input, signal) => {
+        calls++;
+        providerSignal = signal;
+        return model.promise;
+      },
+    });
+    const reader = response.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    assert.equal(providerSignal?.aborted, true);
+    model.reject(new RetryableReceiptAiError());
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls, 1);
+    assert.equal(getEventListeners(req.signal, 'abort').length, initialListeners);
+    reader.releaseLock();
+  },
+);
+
+test(
+  'completed NDJSON work releases its deadline and abort listener',
+  { timeout: 2000 },
+  async () => {
+    const req = request(png, progressHeaders);
+    const initialListeners = getEventListeners(req.signal, 'abort').length;
+    let providerSignal: AbortSignal | undefined;
+    const response = await scanReceiptRequest(req, {
+      timeoutMs: 20,
+      run: async (_input, signal) => {
+        providerSignal = signal;
+        return output;
+      },
+    });
+    await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(providerSignal?.aborted, false);
+    assert.equal(getEventListeners(req.signal, 'abort').length, initialListeners);
+  },
+);
+
+test(
+  'Express forwards the first progress chunk before model completion',
+  { timeout: 5000 },
+  async (t) => {
+    const model = deferred<unknown>();
+    const base = await startExpress(t, { run: async () => model.promise });
+    const response = await fetch(`${base}/api/receipt-scan`, {
+      method: 'POST',
+      headers: { Origin: base, 'Content-Type': 'image/png', ...progressHeaders },
+      body: png,
+    });
+    assert.match(response.headers.get('Content-Type')!, /^application\/x-ndjson/);
+    const reader = response.body!.getReader();
+    t.after(() => reader.cancel());
+    const first = await reader.read();
+    assert.deepEqual(events(new TextDecoder().decode(first.value)), [
+      { type: 'progress', stage: 'reading', attempt: 1 },
+    ]);
+    model.resolve(output);
+    const rest = await remainingEvents(reader);
+    assert.deepEqual(rest[0], { type: 'progress', stage: 'checking' });
+    assert.equal(rest[1].type, 'result');
+  },
+);
+
+test('disconnecting from Express cancels the active provider', { timeout: 5000 }, async (t) => {
+  const aborted = deferred<void>();
+  const base = await startExpress(t, {
+    run: async (_input, signal) => {
+      signal.addEventListener('abort', () => aborted.resolve(), { once: true });
+      return new Promise(() => {});
+    },
+  });
+  const controller = new AbortController();
+  const response = await fetch(`${base}/api/receipt-scan`, {
+    method: 'POST',
+    headers: { Origin: base, 'Content-Type': 'image/png', ...progressHeaders },
+    body: png,
+    signal: controller.signal,
+  });
+  const reader = response.body!.getReader();
+  await reader.read();
+  controller.abort();
+  await aborted.promise;
+  await reader.cancel().catch(() => undefined);
+  reader.releaseLock();
 });
