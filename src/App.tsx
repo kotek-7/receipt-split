@@ -32,6 +32,7 @@ import AmountRatio from './AmountRatio';
 import QuantityTiles from './QuantityTiles';
 import LandingGuide from './LandingGuide';
 import BrandMark from './BrandMark';
+import type { ReceiptReader } from './ocr';
 
 const yen = (n: number) =>
   new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n);
@@ -86,8 +87,29 @@ export default function App() {
   const [error, setError] = useState('');
   const [help, setHelp] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [readerReady, setReaderReady] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [reader, setReader] = useState<ReceiptReader>('local');
+  const [retryPhoto, setRetryPhoto] = useState<File>();
   const activeScan = useRef<AbortController | null>(null);
   const gallery = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/receipt-reader', {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(3000)]),
+    })
+      .then(async (response) => (response.ok ? response.json() : { ai: false }))
+      .then((result: { ai?: boolean }) => {
+        if (controller.signal.aborted) return;
+        setAiAvailable(result.ai === true);
+        setReader(result.ai === true ? 'ai' : 'local');
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!controller.signal.aborted) setReaderReady(true);
+      });
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     const handler = () => {
       activeScan.current?.abort();
@@ -95,6 +117,7 @@ export default function App() {
       setPhoto(undefined);
       setPath(location.pathname);
       setDraft(undefined);
+      setRetryPhoto(undefined);
     };
     window.addEventListener('popstate', handler);
     return () => {
@@ -116,21 +139,28 @@ export default function App() {
     history.pushState(null, '', next);
     setPath(next);
     setDraft(undefined);
+    setRetryPhoto(undefined);
     setError('');
     window.scrollTo(0, 0);
   };
-  const importPhoto = async (file?: File) => {
-    if (!file || activeScan.current) return;
+  const importPhoto = async (file?: File, method: ReceiptReader = reader) => {
+    if (!file || activeScan.current || !readerReady) return;
     const controller = new AbortController();
     activeScan.current = controller;
     setCameraOpen(false);
     setPhoto(undefined);
     if (gallery.current) gallery.current.value = '';
     setError('');
+    setRetryPhoto(undefined);
     setScan(0);
     try {
       const { recognizeReceipt } = await import('./ocr');
-      const { receipt: result, preview } = await recognizeReceipt(file, setScan, controller.signal);
+      const { receipt: result, preview } = await recognizeReceipt(
+        file,
+        setScan,
+        controller.signal,
+        method,
+      );
       if (controller.signal.aborted) return;
       setPhoto(URL.createObjectURL(preview));
       setDraft(result.items.length ? result : { ...result, items: [newItem()] });
@@ -139,7 +169,10 @@ export default function App() {
           'レシートの内容を読み取れませんでした。写真を見ながら入力するか、明るい場所で撮り直してください。',
         );
     } catch (e) {
-      if (!controller.signal.aborted) setError(errorText(e));
+      if (!controller.signal.aborted) {
+        setError(errorText(e));
+        if (method === 'ai') setRetryPhoto(file);
+      }
     } finally {
       if (activeScan.current === controller) {
         activeScan.current = null;
@@ -236,6 +269,37 @@ export default function App() {
             </section>
             <section className="start-card" id="start">
               <h2>割り勘をはじめる</h2>
+              {aiAvailable && (
+                <fieldset className="reader-choice" disabled={scan !== null}>
+                  <legend className="sr-only">写真の読み取り方法</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="reader"
+                      checked={reader === 'ai'}
+                      onChange={() => setReader('ai')}
+                    />
+                    AIで読み取る
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="reader"
+                      checked={reader === 'local'}
+                      onChange={() => setReader('local')}
+                    />
+                    端末内で読み取る
+                  </label>
+                </fieldset>
+              )}
+              <div className="privacy-note">
+                <LockKeyhole size={13} aria-hidden="true" />
+                {!readerReady
+                  ? '読み取りの準備中…'
+                  : reader === 'ai'
+                    ? '写真をCloudflareに送信して読み取ります'
+                    : '写真は端末から送信しません'}
+              </div>
               <div
                 className={`upload-area ${scan !== null ? 'scanning' : ''}`}
                 onDragOver={(e) => e.preventDefault()}
@@ -254,23 +318,39 @@ export default function App() {
                 {scan !== null ? (
                   <>
                     <h3>レシートを読み取り中…</h3>
-                    <p>初回は少し時間がかかります</p>
-                    <div className="progress-track">
-                      <span style={{ width: `${scan}%` }} />
-                    </div>
-                    <span className="progress-text" role="status">
-                      {Math.round(scan)}%
-                    </span>
+                    {reader === 'ai' ? (
+                      <p role="status">
+                        <Spinner /> 品名・数量・金額を確認しています
+                      </p>
+                    ) : (
+                      <>
+                        <p>初回は少し時間がかかります</p>
+                        <div className="progress-track">
+                          <span style={{ width: `${scan}%` }} />
+                        </div>
+                        <span className="progress-text" role="status">
+                          {Math.round(scan)}%
+                        </span>
+                      </>
+                    )}
+                    <button className="text-button" onClick={() => activeScan.current?.abort()}>
+                      中止
+                    </button>
                   </>
                 ) : (
                   <>
                     <p className="drop-hint">写真をここにドロップ</p>
-                    <button className="button primary full" onClick={() => setCameraOpen(true)}>
+                    <button
+                      className="button primary full"
+                      disabled={!readerReady}
+                      onClick={() => setCameraOpen(true)}
+                    >
                       <Camera size={19} />
                       レシートを撮る
                     </button>
                     <button
                       className="button secondary full"
+                      disabled={!readerReady}
                       onClick={() => gallery.current?.click()}
                     >
                       <ImagePlus size={18} />
@@ -281,12 +361,24 @@ export default function App() {
                 )}
               </div>
               <ErrorMessage>{error}</ErrorMessage>
+              {retryPhoto && scan === null && (
+                <button
+                  className="button secondary full"
+                  onClick={() => {
+                    setReader('local');
+                    void importPhoto(retryPhoto, 'local');
+                  }}
+                >
+                  この写真を端末内で読み取る
+                </button>
+              )}
               <div className="alternative">
                 <button
                   className="text-button"
                   disabled={scan !== null}
                   onClick={() => {
                     setError('');
+                    setRetryPhoto(undefined);
                     setPhoto(undefined);
                     setDraft({ items: [newItem()], total: 0, title: '', rawText: '' });
                   }}
@@ -298,16 +390,13 @@ export default function App() {
                   disabled={scan !== null}
                   onClick={() => {
                     setError('');
+                    setRetryPhoto(undefined);
                     setPhoto(undefined);
                     setDraft(demo());
                   }}
                 >
                   サンプルで試す
                 </button>
-              </div>
-              <div className="privacy-note">
-                <LockKeyhole size={13} />
-                写真はあなたの端末で読み取ります
               </div>
             </section>
           </div>
@@ -460,6 +549,13 @@ function Editor({
         className={`editor-layout ${photo || draft.rawText ? 'with-preview' : ''}`}
       >
         <section className="editor-panel">
+          {draft.warnings?.length ? (
+            <div className="scan-warnings" role="status">
+              {draft.warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          ) : null}
           <div className="form-row">
             <label className="form-field event-name-field">
               飲み会の名前

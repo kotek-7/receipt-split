@@ -85,7 +85,12 @@ type CreationBody = {
   total: number;
 };
 
-async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
+async function mountApp(
+  t: TestContext,
+  initialRoom?: Room,
+  signedIn = true,
+  ai: boolean | 'unavailable' = false,
+) {
   const window = new Window({
     url: `https://reciwake.example/${initialRoom ? 'r/test-room' : ''}`,
   });
@@ -102,6 +107,10 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
     window.localStorage.setItem('receipt-split:session:test-room', JSON.stringify(identity));
   const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
     const path = String(input);
+    if (path === '/api/receipt-reader') {
+      if (ai === 'unavailable') throw new Error('network unavailable');
+      return Response.json({ ai });
+    }
     if (path === '/api/rooms' && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)) as CreationBody;
       creations.push(body);
@@ -298,6 +307,29 @@ async function mountApp(t: TestContext, initialRoom?: Room, signedIn = true) {
     },
   };
 }
+
+test('AI photo upload is disclosed before choosing a photo and can be switched off', async (t) => {
+  const app = await mountApp(t, undefined, true, true);
+  const choices = app.host.querySelectorAll<HappyInput>('input[name="reader"]');
+  assert.equal(choices.length, 2);
+  assert.equal(choices[0].checked, true);
+  assert.match(app.host.querySelector('.privacy-note')!.textContent, /Cloudflareに送信/);
+  assert.equal(app.button('写真から選ぶ').disabled, false);
+  await act(async () => choices[1].click());
+  assert.equal(choices[1].checked, true);
+  assert.match(app.host.querySelector('.privacy-note')!.textContent, /端末から送信しません/);
+});
+
+test('unavailable AI and a failed capability request keep local photo reading usable', async (t) => {
+  for (const available of [false, 'unavailable'] as const) {
+    await t.test(String(available), async (t) => {
+      const app = await mountApp(t, undefined, true, available);
+      assert.equal(app.host.querySelectorAll('input[name="reader"]').length, 0);
+      assert.equal(app.button('写真から選ぶ').disabled, false);
+      assert.match(app.host.querySelector('.privacy-note')!.textContent, /端末から送信しません/);
+    });
+  }
+});
 
 test('editor submits purchased counts and chosen split modes without multiplying row totals', async (t) => {
   const app = await mountApp(t);

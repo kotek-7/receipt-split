@@ -20,11 +20,14 @@ async function untilAborted<T>(job: Promise<T>, signal: AbortSignal): Promise<T>
   }
 }
 
-/** Reads the photo on this device. Only OCR engine/language files are downloaded. */
+export type ReceiptReader = 'ai' | 'local';
+
+/** AI uploads only the prepared image; local mode never sends the photo. */
 export async function recognizeReceipt(
   file: File,
   onProgress: (progress: number) => void,
   signal: AbortSignal,
+  reader: ReceiptReader = 'local',
 ): Promise<{ receipt: ParsedReceipt; preview: Blob }> {
   signal.throwIfAborted();
   if (/heic|heif/i.test(file.type) || /\.(?:heic|heif)$/i.test(file.name)) {
@@ -57,6 +60,22 @@ export async function recognizeReceipt(
   try {
     const image = await prepareReceiptImage(file, signal);
     report(5);
+    if (reader === 'ai') {
+      if (image.size > 8 * 1024 * 1024)
+        throw new Error('画像が大きすぎます。端末内で読み取るか、撮り直してください。');
+      const response = await fetch('/api/receipt-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': image.type },
+        body: image,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(50_000)]),
+      });
+      const result = (await response.json()) as { receipt?: ParsedReceipt; error?: string };
+      if (!response.ok || !result.receipt)
+        throw new Error(result.error || '読み取れませんでした。端末内で読み取ってください。');
+      signal.throwIfAborted();
+      report(100);
+      return { receipt: result.receipt, preview: image };
+    }
     const { createWorker, PSM } = await import('tesseract.js');
     signal.throwIfAborted();
     // Keep initialization awaited even after cancellation, so its eventual worker
@@ -90,6 +109,10 @@ export async function recognizeReceipt(
   } catch (error) {
     signal.throwIfAborted();
     if (error instanceof Error && /[\u3040-\u30ff\u3400-\u9fff]/.test(error.message)) throw error;
+    if (reader === 'ai')
+      throw new Error('読み取れませんでした。もう一度試すか、端末内で読み取ってください。', {
+        cause: error,
+      });
     throw new Error(
       '読み取りに失敗しました。初回は読み取りデータのダウンロードが必要です。通信を確認して再試行するか、手入力で続けてください。',
       { cause: error },
