@@ -700,7 +700,11 @@ function Editor({
           </button>
         </section>
         {(photo || draft.rawText) && (
-          <aside className="editor-aside">
+          <aside
+            className="editor-aside"
+            aria-label={photo ? 'レシート画像' : undefined}
+            tabIndex={photo ? 0 : undefined}
+          >
             {photo && (
               <div className="photo-panel">
                 <h2>レシート</h2>

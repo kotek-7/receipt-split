@@ -839,6 +839,18 @@ label > input {
   flex-direction: column;
   gap: var(--space-5);
 }
+.editor-aside:has(.photo-panel) {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100dvh - var(--space-8));
+  overflow: auto;
+  scrollbar-gutter: stable;
+  border-radius: var(--radius-panel);
+}
+.editor-aside:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
 .info-box {
   padding: var(--space-4);
   background: var(--color-soft);
@@ -1783,18 +1795,28 @@ label > input {
     font-size: var(--font-small);
   }
   .editor-layout.with-preview {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
   .editor-aside {
     order: -1;
+  }
+  .editor-aside:has(.photo-panel) {
+    top: var(--space-2);
+    max-height: min(240px, 30dvh);
+    z-index: 2;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+  .editor-layout:has(.photo-panel) .editor-panel :is(input, button, select, summary) {
+    scroll-margin-top: calc(min(240px, 30dvh) + var(--space-6));
   }
   .editor-aside > .info-box {
     display: none;
   }
   .photo-panel {
     padding: var(--space-3);
-    max-height: 260px;
-    overflow: auto;
   }
   .photo-panel img {
     max-width: 280px;
