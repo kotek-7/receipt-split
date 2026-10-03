@@ -1,0 +1,315 @@
+{
+  "formatVersion": 1,
+  "evaluatedOn": "2026-10-03",
+  "productionDeployment": "3ea878ac1a8d0313a7487b2d5e4599d437a855bc",
+  "model": "@cf/google/gemma-4-26b-a4b-it",
+  "promptVersion": "receipt-ja-v1",
+  "promptSha256": "ee854cc8b04814b9304b1707073141cc0eaa931999f54564e769221e2f91ef3d",
+  "preparationSourceSha256": "4a1891ba328357f60786d5269a32c356bf4f9ac6d929a31fe450861ec3e28168",
+  "baselineParserCommit": "bf42c29b9d42c2c71d8c597b3669c0bb1d0837af",
+  "baselineParserSha256": "363804685121e4da2e821798f428e5c1b86fd8f0ce2ba3751c72d0bfad0ba017",
+  "improvedParserSha256": "7f1cfcf5026b00a37407d546c0b4f968a32bcdd918dca16a2dfc4d2e8252fd74",
+  "conditions": {
+    "ai": "Original images selected in production UI; editor fields collected after production image preparation, inference and validation.",
+    "local": "Tesseract.js 6.0.1 in Node.js; jpn+eng, OEM 1, PSM 6, preserve interword spaces, DPI 300; production preparation helper in Chrome 153.",
+    "parserComparison": "Before/after use identical saved OCR text.",
+    "imageEquivalence": "Same sources and browser preparation helper; uploaded AI blob and saved Tesseract PNG were not compared byte for byte.",
+    "latency": "Milliseconds from file selection to editor/error observation, polled approximately once per second; includes preparation, transport, inference and rendering.",
+    "failures": "Included as empty predictions and wrong total; none removed from scoring.",
+    "holdout": "Reserved before tuning; no image-level or prediction-level inspection used for adjustments. Public model training overlap unknown.",
+    "quantity": "Missing ground-truth quantity defaults to one; not all such quantities were manually checked against images.",
+    "scope": "Small fixed public sample, including non-food receipts. Not a population-wide estimate."
+  },
+  "datasets": [
+    {
+      "dataset": "llm-jp/jawildtext/receipt_kie",
+      "revision": "627ca7ea7c224ffe1accff8737991fc2240784fa",
+      "license": "Apache-2.0",
+      "sourceManifestSha256": "a65ff180dde741a39e5323cb5b18825ad640e8027c83adb2d2d5b92ff5138758",
+      "preparedManifestSha256": "b14e0993bf81a3cf2fbdb91274579de6ab7e1d2d1abf71a5bd19abaf8cc2e649",
+      "ocrResultsSha256": "0a1895ce8e9e9f1d5c0c1e07e9b4b8c6d53bdf19de78d28acc24f602d265a949",
+      "splits": [
+        {
+          "split": "dev",
+          "baseline": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 0,
+              "expected": 33,
+              "predicted": 28,
+              "falsePositives": 28,
+              "falseNegatives": 33,
+              "precision": 0,
+              "recall": 0,
+              "f1": 0
+            },
+            "amountQuantity": {
+              "matched": 8,
+              "expected": 33,
+              "predicted": 28,
+              "falsePositives": 20,
+              "falseNegatives": 25,
+              "precision": 0.2857142857142857,
+              "recall": 0.24242424242424243,
+              "f1": 0.26229508196721313
+            },
+            "totalCorrect": 1,
+            "totalAccuracy": 0.1
+          },
+          "improvedLocalParser": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 0,
+              "expected": 33,
+              "predicted": 27,
+              "falsePositives": 27,
+              "falseNegatives": 33,
+              "precision": 0,
+              "recall": 0,
+              "f1": 0
+            },
+            "amountQuantity": {
+              "matched": 8,
+              "expected": 33,
+              "predicted": 27,
+              "falsePositives": 19,
+              "falseNegatives": 25,
+              "precision": 0.2962962962962963,
+              "recall": 0.24242424242424243,
+              "f1": 0.26666666666666666
+            },
+            "totalCorrect": 1,
+            "totalAccuracy": 0.1
+          },
+          "productionAi": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 9,
+              "expected": 33,
+              "predicted": 33,
+              "falsePositives": 24,
+              "falseNegatives": 24,
+              "precision": 0.2727272727272727,
+              "recall": 0.2727272727272727,
+              "f1": 0.2727272727272727
+            },
+            "amountQuantity": {
+              "matched": 33,
+              "expected": 33,
+              "predicted": 33,
+              "falsePositives": 0,
+              "falseNegatives": 0,
+              "precision": 1,
+              "recall": 1,
+              "f1": 1
+            },
+            "totalCorrect": 10,
+            "totalAccuracy": 1,
+            "latencyMs": {
+              "median": 5185.5,
+              "max": 13328
+            }
+          },
+          "evidence": {
+            "resultsSha256": "8b930f62c279a33feca060bed7d58825e0f3dcff2d7a4c673a2e3ba103061a8d",
+            "reportSha256": "e798d9add8e29c4ce94c39de4d4b0bde444f24cb954b294fd60fac6f37379ace",
+            "collectorSha256": "54d4b9fd791d34a91a7af4ec7bc7337ebc375f94c3e6896e24b267c39e6ab127"
+          }
+        },
+        {
+          "split": "holdout",
+          "baseline": {
+            "fixtures": 11,
+            "errors": 0,
+            "exactItems": {
+              "matched": 0,
+              "expected": 21,
+              "predicted": 45,
+              "falsePositives": 45,
+              "falseNegatives": 21,
+              "precision": 0,
+              "recall": 0,
+              "f1": 0
+            },
+            "amountQuantity": {
+              "matched": 9,
+              "expected": 21,
+              "predicted": 45,
+              "falsePositives": 36,
+              "falseNegatives": 12,
+              "precision": 0.2,
+              "recall": 0.42857142857142855,
+              "f1": 0.2727272727272727
+            },
+            "totalCorrect": 2,
+            "totalAccuracy": 0.18181818181818182
+          },
+          "improvedLocalParser": {
+            "fixtures": 11,
+            "errors": 0,
+            "exactItems": {
+              "matched": 0,
+              "expected": 21,
+              "predicted": 45,
+              "falsePositives": 45,
+              "falseNegatives": 21,
+              "precision": 0,
+              "recall": 0,
+              "f1": 0
+            },
+            "amountQuantity": {
+              "matched": 9,
+              "expected": 21,
+              "predicted": 45,
+              "falsePositives": 36,
+              "falseNegatives": 12,
+              "precision": 0.2,
+              "recall": 0.42857142857142855,
+              "f1": 0.2727272727272727
+            },
+            "totalCorrect": 2,
+            "totalAccuracy": 0.18181818181818182
+          },
+          "productionAi": {
+            "fixtures": 11,
+            "errors": 1,
+            "exactItems": {
+              "matched": 4,
+              "expected": 21,
+              "predicted": 19,
+              "falsePositives": 15,
+              "falseNegatives": 17,
+              "precision": 0.21052631578947367,
+              "recall": 0.19047619047619047,
+              "f1": 0.2
+            },
+            "amountQuantity": {
+              "matched": 17,
+              "expected": 21,
+              "predicted": 19,
+              "falsePositives": 2,
+              "falseNegatives": 4,
+              "precision": 0.8947368421052632,
+              "recall": 0.8095238095238095,
+              "f1": 0.85
+            },
+            "totalCorrect": 10,
+            "totalAccuracy": 0.9090909090909091,
+            "latencyMs": {
+              "median": 5164,
+              "max": 10261
+            }
+          },
+          "evidence": {
+            "resultsSha256": "5653a4f81127f92432b4ddde3603ed412e79b49a6b1b13ac72871ca09b141944",
+            "reportSha256": "c5169071c3409ec6715912a418aec3fca7a65e429d651c1ec366dd0e508437fa",
+            "collectorSha256": "54d4b9fd791d34a91a7af4ec7bc7337ebc375f94c3e6896e24b267c39e6ab127"
+          }
+        }
+      ]
+    },
+    {
+      "dataset": "K10124/japan-ocr-mini-benchmark/alpha10",
+      "revision": "c82efda5b823494424e6bc6e9ae7577396ded908",
+      "license": "CC-BY-4.0",
+      "sourceManifestSha256": "fb44681cd681d999b6a0bc981bfea1e1aae474514352261659ebb672b5c38f8f",
+      "preparedManifestSha256": "0f5381f90274a2734141ca487fe63fef14968da76a16b2e4518ca1daeb0d1419",
+      "ocrResultsSha256": "17231ed2e46c9b5a0a712b2875d3a7c789d77863403d4844bfeb8fe3f687516d",
+      "splits": [
+        {
+          "split": "dev",
+          "baseline": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 20,
+              "expected": 70,
+              "predicted": 85,
+              "falsePositives": 65,
+              "falseNegatives": 50,
+              "precision": 0.23529411764705882,
+              "recall": 0.2857142857142857,
+              "f1": 0.25806451612903225
+            },
+            "amountQuantity": {
+              "matched": 56,
+              "expected": 70,
+              "predicted": 85,
+              "falsePositives": 29,
+              "falseNegatives": 14,
+              "precision": 0.6588235294117647,
+              "recall": 0.8,
+              "f1": 0.7225806451612903
+            },
+            "totalCorrect": 3,
+            "totalAccuracy": 0.3
+          },
+          "improvedLocalParser": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 22,
+              "expected": 70,
+              "predicted": 77,
+              "falsePositives": 55,
+              "falseNegatives": 48,
+              "precision": 0.2857142857142857,
+              "recall": 0.3142857142857143,
+              "f1": 0.29931972789115646
+            },
+            "amountQuantity": {
+              "matched": 58,
+              "expected": 70,
+              "predicted": 77,
+              "falsePositives": 19,
+              "falseNegatives": 12,
+              "precision": 0.7532467532467533,
+              "recall": 0.8285714285714286,
+              "f1": 0.7891156462585034
+            },
+            "totalCorrect": 5,
+            "totalAccuracy": 0.5
+          },
+          "productionAi": {
+            "fixtures": 10,
+            "errors": 0,
+            "exactItems": {
+              "matched": 57,
+              "expected": 70,
+              "predicted": 70,
+              "falsePositives": 13,
+              "falseNegatives": 13,
+              "precision": 0.8142857142857143,
+              "recall": 0.8142857142857143,
+              "f1": 0.8142857142857143
+            },
+            "amountQuantity": {
+              "matched": 64,
+              "expected": 70,
+              "predicted": 70,
+              "falsePositives": 6,
+              "falseNegatives": 6,
+              "precision": 0.9142857142857143,
+              "recall": 0.9142857142857143,
+              "f1": 0.9142857142857143
+            },
+            "totalCorrect": 10,
+            "totalAccuracy": 1,
+            "latencyMs": {
+              "median": 5199.5,
+              "max": 32796
+            }
+          },
+          "evidence": {
+            "resultsSha256": "21574d067bb353ff2c8d622e7f5aa5a181aac5b006b77a5071b28dc1737f2922",
+            "reportSha256": "0d0cedcbda1aab160aeb52673c529986d2cab60471b0457fb42f7acbbc4de311",
+            "collectorSha256": "54d4b9fd791d34a91a7af4ec7bc7337ebc375f94c3e6896e24b267c39e6ab127"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -74,6 +74,16 @@ node --import tsx scripts/receipt-eval/run-ai.mjs /tmp/receipts-prepared/manifes
 
 本番と同じモデル・プロンプト・応答検証を使用し、正解データはモデルに渡しません。モデル名、プロンプト・画像・manifest のハッシュ、処理時間、利用量、通信試行を記録します。AI の生応答を含む評価結果は Git 管理外に保存してください。本番 API は生応答を保存しません。通信失敗や形式不正も全体の失敗として数えます。認証・通信の再試行がある場合は個別の試行を記録し、成功した画像だけを選び直して集計しません。モデルが正しく読めた場合の成績と、通信込みの利用成功率は区別してください。
 
+Worker の画像検証・制限・応答処理を含めて測る場合は、準備済みの画像を本番 API に送ります。この方法には Wrangler の認証は不要です。
+
+```sh
+node --import tsx scripts/receipt-eval/run-http.mjs /tmp/receipts-browser/manifest.json --endpoint https://reciwake.kotek7.com/api/receipt-scan --output /tmp/receipts-http-dev --split dev
+```
+
+送信開始の間隔を 11 秒以上空け、クライアント側では再試行しません。通信失敗も保存します。`--expected-deployment-sha` は照合用のデプロイ版を記録する引数で、サーバーの版を自動検証するものではありません。実行前に CI/CD のデプロイ先とコミットを確認してください。
+
+実画面から測る場合は、元画像を「写真から選ぶ」で選択し、読み取り後の編集欄の品名・数量・行金額・総額を記録します。作成ボタンを押す必要はありません。この経路は画像前処理と画面反映も含むため、API runner の処理時間とは分けて集計します。[今回の測定結果](../../docs/receipt-recognition-research.md)では、通信環境の失敗記録も区別して残しています。
+
 品名を NFKC 正規化して空白を除去し、行の順序によらず一対一で対応させます。大文字・小文字、句読点、読み違えた文字はそのまま評価します。数量は完全一致です。3 個を 1 個ずつ 3 行に展開した結果は、正解の 1 行とは一致しません。
 
 - `exactItems`: 品名・行の金額・数量がすべて一致した品目。
