@@ -145,6 +145,7 @@ npm run test:cloud:local
 [GitHub Actions](https://github.com/kotek-7/receipt-split/actions/workflows/ci.yml)で、push・Pull Request・手動実行時にNode.js 24で以下を確認します。
 
 - `npm ci`によるロックファイルからの依存インストール
+- 開発用を含む依存ライブラリの脆弱性監査（high 以上で停止）
 - フォーマットとWorkerの型チェック
 - 単体・API・画面テスト
 - アプリの型チェックとフロントエンドのビルド
