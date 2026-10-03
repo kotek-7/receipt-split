@@ -19,6 +19,29 @@ export interface ReceiptScanOptions {
   timeoutMs?: number;
 }
 
+/** Only adapters with an explicit transient provider response should raise this. */
+export class RetryableReceiptAiError extends Error {
+  constructor() {
+    super('Receipt reader is temporarily unavailable.');
+    this.name = 'RetryableReceiptAiError';
+  }
+}
+
+async function runWithOneRetry(
+  run: ReceiptAiRunner,
+  input: ReceiptAiInput,
+  signal: AbortSignal,
+): Promise<unknown> {
+  signal.throwIfAborted();
+  try {
+    return await run(input, signal);
+  } catch (error) {
+    signal.throwIfAborted();
+    if (!(error instanceof RetryableReceiptAiError)) throw error;
+    return run(input, signal);
+  }
+}
+
 class ScanError extends Error {
   constructor(
     public status: number,
@@ -145,7 +168,7 @@ export async function scanReceiptRequest(
       if (controller.signal.aborted) abortHandler();
     });
     const response = await Promise.race([
-      options.run(buildReceiptAiInput(dataUrl(bytes, mime)), controller.signal),
+      runWithOneRetry(options.run, buildReceiptAiInput(dataUrl(bytes, mime)), controller.signal),
       aborted,
     ]);
     return json({ receipt: parseReceiptAiResponse(response) });

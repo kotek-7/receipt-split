@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
 import { RECEIPT_AI_MODEL } from '../shared/receipt-ai';
-import { scanReceiptRequest } from '../server/receipt-scan';
+import { RetryableReceiptAiError, scanReceiptRequest } from '../server/receipt-scan';
 import {
   calculateSettlement,
   getItemQuantity,
@@ -410,7 +410,22 @@ export default {
         return scanReceiptRequest(request, {
           run:
             ai && limiter
-              ? (input, signal) => ai.run(RECEIPT_AI_MODEL, input, { signal })
+              ? async (input, signal) => {
+                  // Read this call's status directly; binding-level lastRequest fields are shared.
+                  const response = await ai.run(RECEIPT_AI_MODEL, input, {
+                    signal,
+                    returnRawResponse: true,
+                  });
+                  if (!(response instanceof Response))
+                    throw new Error('Invalid receipt provider response.');
+                  if (!response.ok) {
+                    await response.body?.cancel().catch(() => undefined);
+                    if (response.status >= 500 && response.status < 600)
+                      throw new RetryableReceiptAiError();
+                    throw new Error('Receipt provider request failed.');
+                  }
+                  return response.json();
+                }
               : undefined,
           allow: limiter
             ? async () =>

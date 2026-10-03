@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { test } from 'node:test';
 import { createApp } from '../server/app';
-import { scanReceiptRequest, RECEIPT_SCAN_MAX_BYTES } from '../server/receipt-scan';
+import {
+  RetryableReceiptAiError,
+  scanReceiptRequest,
+  RECEIPT_SCAN_MAX_BYTES,
+} from '../server/receipt-scan';
 
 const origin = 'https://example.test';
 const png = Buffer.from(
@@ -137,18 +141,97 @@ test('rate limiting and unavailable AI do not call the model', async () => {
 });
 
 test('invalid model output and provider failures never expose raw output or secrets', async () => {
+  let invalidCalls = 0;
   const invalid = await scanReceiptRequest(request(), {
-    run: async () => ({ choices: [{ message: { content: 'private-model-content' } }] }),
+    run: async () => {
+      invalidCalls++;
+      return {
+        choices: [{ message: { content: JSON.stringify({ title: 'private-model-content' }) } }],
+      };
+    },
   });
   assert.equal(invalid.status, 422);
+  assert.equal(invalidCalls, 1);
   assert.doesNotMatch(await invalid.text(), /private-model-content/);
+  let failedCalls = 0;
   const failed = await scanReceiptRequest(request(), {
     run: async () => {
+      failedCalls++;
       throw new Error('private-provider-secret');
     },
   });
   assert.equal(failed.status, 502);
+  assert.equal(failedCalls, 1);
   assert.doesNotMatch(await failed.text(), /private-provider-secret/);
+});
+
+test('scan retries one explicit transient provider failure with the same input', async () => {
+  let calls = 0;
+  let rateLimitCalls = 0;
+  let firstInput: unknown;
+  const result = await scanReceiptRequest(request(), {
+    allow: async () => {
+      rateLimitCalls++;
+      return true;
+    },
+    run: async (input) => {
+      calls++;
+      if (calls === 1) {
+        firstInput = input;
+        throw new RetryableReceiptAiError();
+      }
+      assert.equal(input, firstInput);
+      return output;
+    },
+  });
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).receipt.total, 1800);
+  assert.equal(calls, 2);
+  assert.equal(rateLimitCalls, 1);
+});
+
+test('a second transient provider failure stops without exposing provider details', async () => {
+  let calls = 0;
+  const result = await scanReceiptRequest(request(), {
+    run: async () => {
+      calls++;
+      throw new RetryableReceiptAiError();
+    },
+  });
+  assert.equal(result.status, 502);
+  assert.equal(calls, 2);
+  assert.doesNotMatch(await result.text(), /RetryableReceiptAiError|Receipt reader/);
+});
+
+test('cancellation prevents a retry after a transient failure', async () => {
+  let calls = 0;
+  const controller = new AbortController();
+  const result = await scanReceiptRequest(request(png, {}, controller.signal), {
+    run: async () => {
+      calls++;
+      controller.abort();
+      throw new RetryableReceiptAiError();
+    },
+  });
+  assert.equal(result.status, 499);
+  assert.equal(calls, 1);
+});
+
+test('the retry remains inside the original deadline', async () => {
+  let calls = 0;
+  let retrySignal: AbortSignal | undefined;
+  const result = await scanReceiptRequest(request(), {
+    timeoutMs: 30,
+    run: async (_input, signal) => {
+      calls++;
+      if (calls === 1) throw new RetryableReceiptAiError();
+      retrySignal = signal;
+      return new Promise(() => {});
+    },
+  });
+  assert.equal(result.status, 504);
+  assert.equal(calls, 2);
+  assert.equal(retrySignal?.aborted, true);
 });
 
 test('deadline and client cancellation abort the provider and return bounded errors', async () => {

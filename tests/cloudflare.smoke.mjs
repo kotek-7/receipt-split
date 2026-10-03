@@ -18,6 +18,15 @@ async function api(method, route, body, token, expected = 200) {
 }
 
 await api('GET', '/health');
+const reader = await api('GET', '/receipt-reader');
+assert.equal(typeof reader.ai, 'boolean');
+const foreignScan = await fetch(`${base}/api/receipt-scan`, {
+  method: 'POST',
+  headers: { Origin: 'https://unrelated.example', 'Content-Type': 'image/png' },
+  body: new Uint8Array([137, 80]),
+});
+assert.equal(foreignScan.status, 403);
+assert.equal(foreignScan.headers.get('cache-control'), 'no-store');
 const input = {
   title: `動作確認 ${new Date().toISOString()}`,
   payerName: '動作確認・立替',
