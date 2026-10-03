@@ -8,7 +8,7 @@ import {
   type HTMLElement as HappyElement,
 } from 'happy-dom';
 import { act, createElement } from 'react';
-import type { ReceiptItem, Room } from '../shared/types';
+import type { ParsedReceipt, ReceiptItem, Room } from '../shared/types';
 
 // The application imports camera styles; Vite loads those in the browser.
 if (typeof nodeModule.registerHooks === 'function') {
@@ -90,6 +90,7 @@ async function mountApp(
   initialRoom?: Room,
   signedIn = true,
   ai: boolean | 'unavailable' = false,
+  scannedReceipt?: ParsedReceipt,
 ) {
   const window = new Window({
     url: `https://reciwake.example/${initialRoom ? 'r/test-room' : ''}`,
@@ -103,6 +104,10 @@ async function mountApp(
   const payments: { memberId: string; paid: boolean }[] = [];
   const selectionFailures = new Map<number, string>();
   let selectionWait: Promise<void> | undefined;
+  let receiptRead: (() => void) | undefined;
+  const scanned = new Promise<void>((resolve) => {
+    receiptRead = resolve;
+  });
   if (initialRoom && signedIn)
     window.localStorage.setItem('receipt-split:session:test-room', JSON.stringify(identity));
   const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
@@ -110,6 +115,11 @@ async function mountApp(
     if (path === '/api/receipt-reader') {
       if (ai === 'unavailable') throw new Error('network unavailable');
       return Response.json({ ai });
+    }
+    if (path === '/api/receipt-scan' && init?.method === 'POST') {
+      assert.ok(scannedReceipt, 'photo recognition must have a mocked AI receipt');
+      receiptRead?.();
+      return Response.json({ receipt: scannedReceipt });
     }
     if (path === '/api/rooms' && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)) as CreationBody;
@@ -237,6 +247,7 @@ async function mountApp(
     return radio;
   };
   return {
+    window,
     host,
     selections,
     creations,
@@ -245,6 +256,16 @@ async function mountApp(
     button,
     tile,
     radio,
+    async uploadPhoto(file: File) {
+      const area = host.querySelector('.upload-area');
+      assert.ok(area, 'photo upload must be visible');
+      const event = new window.Event('drop', { bubbles: true });
+      Object.defineProperty(event, 'dataTransfer', { value: { files: [file] } });
+      await act(async () => {
+        area.dispatchEvent(event);
+        await scanned;
+      });
+    },
     updateRoom(update: (room: Room) => void) {
       update(room);
       room = { ...room, version: room.version + 1 };
@@ -330,6 +351,58 @@ test('unavailable AI and a failed capability request keep local photo reading us
     });
   }
 });
+
+test(
+  'editing and deleting AI receipt rows preserve the printed payment total',
+  { timeout: 5000 },
+  async (t) => {
+    const receipt: ParsedReceipt = {
+      title: '夕食',
+      total: 2100,
+      rawText: '',
+      items: [
+        { id: 'drink', name: 'ビール', amount: 1200, quantity: 2, splitMode: 'quantity' },
+        { id: 'food', name: '唐揚げ', amount: 900, quantity: 1, splitMode: 'quantity' },
+      ],
+    };
+    const app = await mountApp(t, undefined, true, true, receipt);
+    const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
+    Object.defineProperty(globalThis, 'createImageBitmap', {
+      configurable: true,
+      value: async () => ({ close() {} }),
+    });
+    t.after(() => {
+      if (originalBitmap) Object.defineProperty(globalThis, 'createImageBitmap', originalBitmap);
+      else Reflect.deleteProperty(globalThis, 'createImageBitmap');
+    });
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY1sAAAAASUVORK5CYII=',
+      'base64',
+    );
+    const preview = new Blob([png], { type: 'image/png' });
+    t.mock.method(app.window.HTMLCanvasElement.prototype, 'getContext', () => ({
+      fillRect() {},
+      drawImage() {},
+      getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+    }));
+    t.mock.method(app.window.HTMLCanvasElement.prototype, 'toBlob', (callback: BlobCallback) =>
+      callback(preview),
+    );
+    await app.uploadPhoto(new File([png], 'receipt.png', { type: 'image/png' }));
+    assert.ok(app.host.querySelector('.photo-panel img'), 'AI receipt keeps its photo preview');
+    assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
+    await app.input('input[aria-label="1行目の合計金額"]', '1000');
+    assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
+    await app.click('2行目を削除');
+    assert.equal(app.host.querySelectorAll('.editable-item').length, 1);
+    assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '2100');
+    await app.input('input[placeholder="例：あおい"]', 'あき');
+    await app.click('共有リンクを作る');
+    assert.equal(app.creations.length, 1);
+    assert.equal(app.creations[0].total, 2100);
+    assert.equal(app.creations[0].items[0].amount, 1000);
+  },
+);
 
 test('editor submits purchased counts and chosen split modes without multiplying row totals', async (t) => {
   const app = await mountApp(t);

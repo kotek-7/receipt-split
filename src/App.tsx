@@ -503,6 +503,7 @@ function Editor({
   const updateItems = (next: ReceiptItem[]) => {
     setItems(next);
     if (
+      !photo &&
       !draft.rawText &&
       !totalEdited &&
       draft.total === draft.items.reduce((s, i) => s + i.amount, 0)
