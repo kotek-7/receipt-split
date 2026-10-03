@@ -1,0 +1,1090 @@
+{
+  "version": 1,
+  "selection": {
+    "jawildtext": "first 30 receipt_kie rows; first 10 development, next 20 reserved holdout",
+    "jomb-alpha10": "all 10 approved synthetic samples, development only"
+  },
+  "datasets": [
+    {
+      "key": "jawildtext",
+      "dataset": "llm-jp/jawildtext/receipt_kie",
+      "revision": "627ca7ea7c224ffe1accff8737991fc2240784fa",
+      "license": "Apache-2.0",
+      "synthetic": false,
+      "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext",
+      "rowsUrl": "https://datasets-server.huggingface.co/rows?dataset=llm-jp%2Fjawildtext&config=receipt_kie&split=train&offset=0&length=30",
+      "files": [
+        {
+          "path": "README.upstream.md",
+          "cachePath": "jawildtext-README.md",
+          "sha256": "ccccaf793594fdee0bbd801f8e95802aa19324a17f67466a2c9f8439e553d5f7",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "cachePath": "jawildtext-LICENSE",
+          "sha256": "477ab813c09bfa4033e7a6c938f017f348be9369a1af357129828f9c48bacf22",
+          "kind": "notice",
+          "sourceUrl": "https://raw.githubusercontent.com/llm-jp/jawildtext/25549d9ea46fd26f4c951ea31e7f110218c3acad/LICENSE"
+        },
+        {
+          "path": "images/0001.jpg",
+          "cachePath": "jawildtext/0001.jpg",
+          "sha256": "85e0b5cfeaedc497aef1804e87d8735fc4cad1e16b3886eecad7675ec467c2aa",
+          "kind": "image",
+          "rowIndex": 0,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=0"
+        },
+        {
+          "path": "source/0001.json",
+          "cachePath": "jawildtext/0001.json",
+          "sha256": "6dac34cb7594a03ba0e656b7db3feff16a38cc34cfbf85c63e07003adee5f6d5",
+          "kind": "ground_truth",
+          "rowIndex": 0,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=0"
+        },
+        {
+          "path": "images/0002.jpg",
+          "cachePath": "jawildtext/0002.jpg",
+          "sha256": "4b11dac3dd9ddff05acfab31db91c67c7d8a090fa0f1929972fc015abc3b6e1f",
+          "kind": "image",
+          "rowIndex": 1,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=1"
+        },
+        {
+          "path": "source/0002.json",
+          "cachePath": "jawildtext/0002.json",
+          "sha256": "0b1eea0b7901cabdeda8db289b051e9acbd329da4d02f51e3e8a89e2940ecbf9",
+          "kind": "ground_truth",
+          "rowIndex": 1,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=1"
+        },
+        {
+          "path": "images/0003.jpg",
+          "cachePath": "jawildtext/0003.jpg",
+          "sha256": "0008575908c1be03d3eabaae925676d148721dcd5ebfe7cc4af4eb8aae7d2f31",
+          "kind": "image",
+          "rowIndex": 2,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=2"
+        },
+        {
+          "path": "source/0003.json",
+          "cachePath": "jawildtext/0003.json",
+          "sha256": "5c7af07588661b0e35d22a0ff8746158a37eebc11b9a53067d4489eb748caa11",
+          "kind": "ground_truth",
+          "rowIndex": 2,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=2"
+        },
+        {
+          "path": "images/0004.jpg",
+          "cachePath": "jawildtext/0004.jpg",
+          "sha256": "9668aa0b8f4cbfdc6f4cc3002dade31495000863e58f08312d079768ca42f6f9",
+          "kind": "image",
+          "rowIndex": 3,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=3"
+        },
+        {
+          "path": "source/0004.json",
+          "cachePath": "jawildtext/0004.json",
+          "sha256": "46d5589458294192e364446e84c11dbc1a7d811ad7f6264c8d15a6fe19db093d",
+          "kind": "ground_truth",
+          "rowIndex": 3,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=3"
+        },
+        {
+          "path": "images/0005.jpg",
+          "cachePath": "jawildtext/0005.jpg",
+          "sha256": "7aa4d96c045fda9da989e17e141250bcb0307b6696cc39b87013f7fc901bcdea",
+          "kind": "image",
+          "rowIndex": 4,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=4"
+        },
+        {
+          "path": "source/0005.json",
+          "cachePath": "jawildtext/0005.json",
+          "sha256": "887083e6364a6e4634c297190004cd0af65f36523fc86c24414e021eee6c7fd6",
+          "kind": "ground_truth",
+          "rowIndex": 4,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=4"
+        },
+        {
+          "path": "images/0006.jpg",
+          "cachePath": "jawildtext/0006.jpg",
+          "sha256": "68cacf831c475bbfe45f56868862649a2a77140d9a0f1ea1d1e5e970f0a1ef08",
+          "kind": "image",
+          "rowIndex": 5,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=5"
+        },
+        {
+          "path": "source/0006.json",
+          "cachePath": "jawildtext/0006.json",
+          "sha256": "e923a920dcb45e60022ad3199be7b49e054737d1390aafa3b4f05f2afabe96ec",
+          "kind": "ground_truth",
+          "rowIndex": 5,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=5"
+        },
+        {
+          "path": "images/0007.jpg",
+          "cachePath": "jawildtext/0007.jpg",
+          "sha256": "7434f6db63b639525fbf81c17b0935038c2c05c1f31b8f75b308f8fe40b8da2a",
+          "kind": "image",
+          "rowIndex": 6,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=6"
+        },
+        {
+          "path": "source/0007.json",
+          "cachePath": "jawildtext/0007.json",
+          "sha256": "925ac669679e2fb7ee10d45e54f98f7595a425c87f19ee66ea37edec6bf41a1e",
+          "kind": "ground_truth",
+          "rowIndex": 6,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=6"
+        },
+        {
+          "path": "images/0008.jpg",
+          "cachePath": "jawildtext/0008.jpg",
+          "sha256": "b6986104308f32fcc3f8df77cb245f7030f14c17a231ea57550d5cae7d4adb63",
+          "kind": "image",
+          "rowIndex": 7,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=7"
+        },
+        {
+          "path": "source/0008.json",
+          "cachePath": "jawildtext/0008.json",
+          "sha256": "0821788667ec9cb629641536d0c8625f545e3551c001247f518584b3109a9c9e",
+          "kind": "ground_truth",
+          "rowIndex": 7,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=7"
+        },
+        {
+          "path": "images/0009.jpg",
+          "cachePath": "jawildtext/0009.jpg",
+          "sha256": "a305674a32662667b1f99b1911e237512406233d39a7b29ffdd222877dec4157",
+          "kind": "image",
+          "rowIndex": 8,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=8"
+        },
+        {
+          "path": "source/0009.json",
+          "cachePath": "jawildtext/0009.json",
+          "sha256": "c634583f704935e881a597f6ab23295839d882d37c18e4851e7c766a87b83c65",
+          "kind": "ground_truth",
+          "rowIndex": 8,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=8"
+        },
+        {
+          "path": "images/0010.jpg",
+          "cachePath": "jawildtext/0010.jpg",
+          "sha256": "32cb0c844a1e7a1697eef1e4e9e0e649f1ffd84e1856b885229ba779f4207b00",
+          "kind": "image",
+          "rowIndex": 9,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=9"
+        },
+        {
+          "path": "source/0010.json",
+          "cachePath": "jawildtext/0010.json",
+          "sha256": "708f05564c868c9c741368affd22cbb6a3cf6087afbe3e535b449f2de76a9afe",
+          "kind": "ground_truth",
+          "rowIndex": 9,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=9"
+        },
+        {
+          "path": "images/0011.jpg",
+          "cachePath": "jawildtext/0011.jpg",
+          "sha256": "ebb5a66a2fce80bb711bc2b084ae776dd701a9f144202020c39335670805dadd",
+          "kind": "image",
+          "rowIndex": 10,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=10"
+        },
+        {
+          "path": "source/0011.json",
+          "cachePath": "jawildtext/0011.json",
+          "sha256": "2f9dd10926e028b47181ad7e3effcfe3d28fb7633bb42661a608851cb060e4a7",
+          "kind": "ground_truth",
+          "rowIndex": 10,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=10"
+        },
+        {
+          "path": "images/0012.jpg",
+          "cachePath": "jawildtext/0012.jpg",
+          "sha256": "7dda04b49533ad719dcbb2a168808ffa1c5e23226843d3f9124b018222f1e044",
+          "kind": "image",
+          "rowIndex": 11,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=11"
+        },
+        {
+          "path": "source/0012.json",
+          "cachePath": "jawildtext/0012.json",
+          "sha256": "60d2cd5169f50a2b7aa074e3f55d82c4a1243982f42e15a5da7e265918c3c58d",
+          "kind": "ground_truth",
+          "rowIndex": 11,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=11"
+        },
+        {
+          "path": "images/0013.jpg",
+          "cachePath": "jawildtext/0013.jpg",
+          "sha256": "22b77c45d2e19d1c37d8a5ca4044715168b180001b49a3566f565032c461fd17",
+          "kind": "image",
+          "rowIndex": 12,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=12"
+        },
+        {
+          "path": "source/0013.json",
+          "cachePath": "jawildtext/0013.json",
+          "sha256": "c9dc293b544a93a15cd9c71f2827b350e36769af3585f0190591fdeb1b4895e0",
+          "kind": "ground_truth",
+          "rowIndex": 12,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=12"
+        },
+        {
+          "path": "images/0014.jpg",
+          "cachePath": "jawildtext/0014.jpg",
+          "sha256": "b8abad95bfce947435ff9e5d046bdf58fa009a4f678f80494933491922d23c80",
+          "kind": "image",
+          "rowIndex": 13,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=13"
+        },
+        {
+          "path": "source/0014.json",
+          "cachePath": "jawildtext/0014.json",
+          "sha256": "ce4b84283ee8f642c5916928b8673a6eff1f6b4292671cc75d57a243a6c19159",
+          "kind": "ground_truth",
+          "rowIndex": 13,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=13"
+        },
+        {
+          "path": "images/0015.jpg",
+          "cachePath": "jawildtext/0015.jpg",
+          "sha256": "06c38a8f53e07d770ff8723642edd133f244cdea247c12c2f785f439f295d7ee",
+          "kind": "image",
+          "rowIndex": 14,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=14"
+        },
+        {
+          "path": "source/0015.json",
+          "cachePath": "jawildtext/0015.json",
+          "sha256": "a988213d14ea662b7141a47575bbfe24508553a03534b8b30cde1ede41b498e4",
+          "kind": "ground_truth",
+          "rowIndex": 14,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=14"
+        },
+        {
+          "path": "images/0016.jpg",
+          "cachePath": "jawildtext/0016.jpg",
+          "sha256": "8a90efcd442a46d97d472cdaaf6a099d80c6b7087d15c21932efa9a0864018e3",
+          "kind": "image",
+          "rowIndex": 15,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=15"
+        },
+        {
+          "path": "source/0016.json",
+          "cachePath": "jawildtext/0016.json",
+          "sha256": "039b9ce45352e2fbefa6bbe1b2bf3a2e0aeb7dded0f41a407a511b5c52aff458",
+          "kind": "ground_truth",
+          "rowIndex": 15,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=15"
+        },
+        {
+          "path": "images/0017.jpg",
+          "cachePath": "jawildtext/0017.jpg",
+          "sha256": "bbe5efffb0033095172aaac7d548978fc97d8ab3102c6331bf5850eb8a4cb170",
+          "kind": "image",
+          "rowIndex": 16,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=16"
+        },
+        {
+          "path": "source/0017.json",
+          "cachePath": "jawildtext/0017.json",
+          "sha256": "1f13b7f0f26145aceaa7d8012c0cc5748f73674b78aed0543617bc06eefde600",
+          "kind": "ground_truth",
+          "rowIndex": 16,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=16"
+        },
+        {
+          "path": "images/0018.jpg",
+          "cachePath": "jawildtext/0018.jpg",
+          "sha256": "90e4371b1481ec416cdb74030e186362ec53dcb689c345a2755f72276ad0fe3e",
+          "kind": "image",
+          "rowIndex": 17,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=17"
+        },
+        {
+          "path": "source/0018.json",
+          "cachePath": "jawildtext/0018.json",
+          "sha256": "608286d8f9a06386a3485eb663136998531f6f535762a2ad646fc6bfae817f4c",
+          "kind": "ground_truth",
+          "rowIndex": 17,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=17"
+        },
+        {
+          "path": "images/0019.jpg",
+          "cachePath": "jawildtext/0019.jpg",
+          "sha256": "ea7c48ec3da79cc5da04f2589b4a3a8309f4db8a67428d9ed401f002d9841ecd",
+          "kind": "image",
+          "rowIndex": 18,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=18"
+        },
+        {
+          "path": "source/0019.json",
+          "cachePath": "jawildtext/0019.json",
+          "sha256": "3bcdca52ce9069a71e5805422a6f11ff7563dd5b4d76e23a936b1464db0fb565",
+          "kind": "ground_truth",
+          "rowIndex": 18,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=18"
+        },
+        {
+          "path": "images/0020.jpg",
+          "cachePath": "jawildtext/0020.jpg",
+          "sha256": "da378c2c4f7493f79725b6ea1004e174fe29bf167ba8fcab4c1a14833f055d2c",
+          "kind": "image",
+          "rowIndex": 19,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=19"
+        },
+        {
+          "path": "source/0020.json",
+          "cachePath": "jawildtext/0020.json",
+          "sha256": "197360febe09074c89b1f7e4a390c3447c86928776c6dbcbd1d5b4d2065d9e84",
+          "kind": "ground_truth",
+          "rowIndex": 19,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=19"
+        },
+        {
+          "path": "images/0021.jpg",
+          "cachePath": "jawildtext/0021.jpg",
+          "sha256": "3dc8e77d70063d0442e4cdfcb21524975c9a61a48a0fa115ff47cd483ed3b1b0",
+          "kind": "image",
+          "rowIndex": 20,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=20"
+        },
+        {
+          "path": "source/0021.json",
+          "cachePath": "jawildtext/0021.json",
+          "sha256": "35a6ceaee3aa3e0c32c2055018f94dfe3a9195671da6001b55a4c0f02f99cccf",
+          "kind": "ground_truth",
+          "rowIndex": 20,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=20"
+        },
+        {
+          "path": "images/0022.jpg",
+          "cachePath": "jawildtext/0022.jpg",
+          "sha256": "da8f81ac6d9ba26029d9fff2ba5327a22a5ca3b24096bf9c4df20100db48022a",
+          "kind": "image",
+          "rowIndex": 21,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=21"
+        },
+        {
+          "path": "source/0022.json",
+          "cachePath": "jawildtext/0022.json",
+          "sha256": "3ec64f6a6a458a915d85a2c693b16b4cdd1386ef56d45589ad857e5820eb813e",
+          "kind": "ground_truth",
+          "rowIndex": 21,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=21"
+        },
+        {
+          "path": "images/0023.jpg",
+          "cachePath": "jawildtext/0023.jpg",
+          "sha256": "54d51c7213a2c67feebc5afd4e5c7ce6644d1ab52e646911e0bc2f4e562a101a",
+          "kind": "image",
+          "rowIndex": 22,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=22"
+        },
+        {
+          "path": "source/0023.json",
+          "cachePath": "jawildtext/0023.json",
+          "sha256": "be42264a786ca3e603780fc8e9a074aaa99a64a681231fc5d1353ef5c7017015",
+          "kind": "ground_truth",
+          "rowIndex": 22,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=22"
+        },
+        {
+          "path": "images/0024.jpg",
+          "cachePath": "jawildtext/0024.jpg",
+          "sha256": "2c05a3345ba7ccac583c41a5a9eebeb2caa51c1be5aa24131b46995aad5bd0a0",
+          "kind": "image",
+          "rowIndex": 23,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=23"
+        },
+        {
+          "path": "source/0024.json",
+          "cachePath": "jawildtext/0024.json",
+          "sha256": "246cdda010dac126eb05196bf5cf427d22827831f6c196c3dcb5ce5d8f9dbd9f",
+          "kind": "ground_truth",
+          "rowIndex": 23,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=23"
+        },
+        {
+          "path": "images/0025.jpg",
+          "cachePath": "jawildtext/0025.jpg",
+          "sha256": "69447cf575f59f242c0fe3ddaa5300e831841f298c66ebfc8a1f10530dd437da",
+          "kind": "image",
+          "rowIndex": 24,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=24"
+        },
+        {
+          "path": "source/0025.json",
+          "cachePath": "jawildtext/0025.json",
+          "sha256": "d490f88197b47558cd8b80d6cb732de19ddccd140e83d273b29a16d26c2d7da4",
+          "kind": "ground_truth",
+          "rowIndex": 24,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=24"
+        },
+        {
+          "path": "images/0026.jpg",
+          "cachePath": "jawildtext/0026.jpg",
+          "sha256": "9bcf583ba5b3f9ada23e38a5f4cc7530fc03baba8ea58558645ee5eec9eaf361",
+          "kind": "image",
+          "rowIndex": 25,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=25"
+        },
+        {
+          "path": "source/0026.json",
+          "cachePath": "jawildtext/0026.json",
+          "sha256": "72ca3aa4222819abd8b595d654c0909290d8e925a099bcb657c122cf85fd1856",
+          "kind": "ground_truth",
+          "rowIndex": 25,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=25"
+        },
+        {
+          "path": "images/0027.jpg",
+          "cachePath": "jawildtext/0027.jpg",
+          "sha256": "3e58479039e1e2778ee37a212e0ef205cd72dcc3e7347403c2a16d3a4c92f579",
+          "kind": "image",
+          "rowIndex": 26,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=26"
+        },
+        {
+          "path": "source/0027.json",
+          "cachePath": "jawildtext/0027.json",
+          "sha256": "d4270ba5a9469e29698949abec60d7be7c2e25da4a231602b6f0ead64fffcec3",
+          "kind": "ground_truth",
+          "rowIndex": 26,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=26"
+        },
+        {
+          "path": "images/0028.jpg",
+          "cachePath": "jawildtext/0028.jpg",
+          "sha256": "029e97eb91da8214da149688dbe1e8d9ef7464ff91bb598449eecab0c8dc417b",
+          "kind": "image",
+          "rowIndex": 27,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=27"
+        },
+        {
+          "path": "source/0028.json",
+          "cachePath": "jawildtext/0028.json",
+          "sha256": "a9d4f69b09a53edcc392e7dc2e7592aa8049ccd92e47b7e1b7268bb767d23bf5",
+          "kind": "ground_truth",
+          "rowIndex": 27,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=27"
+        },
+        {
+          "path": "images/0029.jpg",
+          "cachePath": "jawildtext/0029.jpg",
+          "sha256": "6e1b0882290a593902bb1190a03ec11781ad828d8d7afe90defe92e4aac1eb39",
+          "kind": "image",
+          "rowIndex": 28,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=28"
+        },
+        {
+          "path": "source/0029.json",
+          "cachePath": "jawildtext/0029.json",
+          "sha256": "e579d1a78f62e0e00bf63660fa5ac58778027a752b8c55259d1df69d0a59b3b1",
+          "kind": "ground_truth",
+          "rowIndex": 28,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=28"
+        },
+        {
+          "path": "images/0030.jpg",
+          "cachePath": "jawildtext/0030.jpg",
+          "sha256": "f31232c8ff0c56e498b58f39d60a7632552c4d29a7a2a1fbf08b4c279b862898",
+          "kind": "image",
+          "rowIndex": 29,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=29"
+        },
+        {
+          "path": "source/0030.json",
+          "cachePath": "jawildtext/0030.json",
+          "sha256": "e5e6bfc59b468139de6c4dc337994f81ff5fbc55bb1cb8f456b2ed4449c5986c",
+          "kind": "ground_truth",
+          "rowIndex": 29,
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=29"
+        }
+      ],
+      "records": [
+        {
+          "id": "jawildtext-1",
+          "rowIndex": 0,
+          "image": "images/0001.jpg",
+          "groundTruth": "source/0001.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=0"
+        },
+        {
+          "id": "jawildtext-2",
+          "rowIndex": 1,
+          "image": "images/0002.jpg",
+          "groundTruth": "source/0002.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=1"
+        },
+        {
+          "id": "jawildtext-3",
+          "rowIndex": 2,
+          "image": "images/0003.jpg",
+          "groundTruth": "source/0003.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=2"
+        },
+        {
+          "id": "jawildtext-4",
+          "rowIndex": 3,
+          "image": "images/0004.jpg",
+          "groundTruth": "source/0004.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=3"
+        },
+        {
+          "id": "jawildtext-5",
+          "rowIndex": 4,
+          "image": "images/0005.jpg",
+          "groundTruth": "source/0005.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=4"
+        },
+        {
+          "id": "jawildtext-6",
+          "rowIndex": 5,
+          "image": "images/0006.jpg",
+          "groundTruth": "source/0006.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=5"
+        },
+        {
+          "id": "jawildtext-7",
+          "rowIndex": 6,
+          "image": "images/0007.jpg",
+          "groundTruth": "source/0007.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=6"
+        },
+        {
+          "id": "jawildtext-8",
+          "rowIndex": 7,
+          "image": "images/0008.jpg",
+          "groundTruth": "source/0008.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=7"
+        },
+        {
+          "id": "jawildtext-9",
+          "rowIndex": 8,
+          "image": "images/0009.jpg",
+          "groundTruth": "source/0009.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=8"
+        },
+        {
+          "id": "jawildtext-10",
+          "rowIndex": 9,
+          "image": "images/0010.jpg",
+          "groundTruth": "source/0010.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=9"
+        },
+        {
+          "id": "jawildtext-11",
+          "rowIndex": 10,
+          "image": "images/0011.jpg",
+          "groundTruth": "source/0011.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=10"
+        },
+        {
+          "id": "jawildtext-12",
+          "rowIndex": 11,
+          "image": "images/0012.jpg",
+          "groundTruth": "source/0012.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=11"
+        },
+        {
+          "id": "jawildtext-13",
+          "rowIndex": 12,
+          "image": "images/0013.jpg",
+          "groundTruth": "source/0013.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=12"
+        },
+        {
+          "id": "jawildtext-14",
+          "rowIndex": 13,
+          "image": "images/0014.jpg",
+          "groundTruth": "source/0014.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=13"
+        },
+        {
+          "id": "jawildtext-15",
+          "rowIndex": 14,
+          "image": "images/0015.jpg",
+          "groundTruth": "source/0015.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=14"
+        },
+        {
+          "id": "jawildtext-16",
+          "rowIndex": 15,
+          "image": "images/0016.jpg",
+          "groundTruth": "source/0016.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=15"
+        },
+        {
+          "id": "jawildtext-17",
+          "rowIndex": 16,
+          "image": "images/0017.jpg",
+          "groundTruth": "source/0017.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=16"
+        },
+        {
+          "id": "jawildtext-18",
+          "rowIndex": 17,
+          "image": "images/0018.jpg",
+          "groundTruth": "source/0018.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=17"
+        },
+        {
+          "id": "jawildtext-19",
+          "rowIndex": 18,
+          "image": "images/0019.jpg",
+          "groundTruth": "source/0019.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=18"
+        },
+        {
+          "id": "jawildtext-20",
+          "rowIndex": 19,
+          "image": "images/0020.jpg",
+          "groundTruth": "source/0020.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=19"
+        },
+        {
+          "id": "jawildtext-21",
+          "rowIndex": 20,
+          "image": "images/0021.jpg",
+          "groundTruth": "source/0021.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=20"
+        },
+        {
+          "id": "jawildtext-22",
+          "rowIndex": 21,
+          "image": "images/0022.jpg",
+          "groundTruth": "source/0022.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=21"
+        },
+        {
+          "id": "jawildtext-23",
+          "rowIndex": 22,
+          "image": "images/0023.jpg",
+          "groundTruth": "source/0023.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=22"
+        },
+        {
+          "id": "jawildtext-24",
+          "rowIndex": 23,
+          "image": "images/0024.jpg",
+          "groundTruth": "source/0024.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=23"
+        },
+        {
+          "id": "jawildtext-25",
+          "rowIndex": 24,
+          "image": "images/0025.jpg",
+          "groundTruth": "source/0025.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=24"
+        },
+        {
+          "id": "jawildtext-26",
+          "rowIndex": 25,
+          "image": "images/0026.jpg",
+          "groundTruth": "source/0026.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=25"
+        },
+        {
+          "id": "jawildtext-27",
+          "rowIndex": 26,
+          "image": "images/0027.jpg",
+          "groundTruth": "source/0027.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=26"
+        },
+        {
+          "id": "jawildtext-28",
+          "rowIndex": 27,
+          "image": "images/0028.jpg",
+          "groundTruth": "source/0028.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=27"
+        },
+        {
+          "id": "jawildtext-29",
+          "rowIndex": 28,
+          "image": "images/0029.jpg",
+          "groundTruth": "source/0029.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=28"
+        },
+        {
+          "id": "jawildtext-30",
+          "rowIndex": 29,
+          "image": "images/0030.jpg",
+          "groundTruth": "source/0030.json",
+          "split": "holdout",
+          "sourceUrl": "https://huggingface.co/datasets/llm-jp/jawildtext/resolve/627ca7ea7c224ffe1accff8737991fc2240784fa/receipt_kie/train-00000-of-00008.parquet#row=29"
+        }
+      ]
+    },
+    {
+      "key": "jomb-alpha10",
+      "dataset": "K10124/japan-ocr-mini-benchmark/alpha10",
+      "revision": "c82efda5b823494424e6bc6e9ae7577396ded908",
+      "license": "CC-BY-4.0",
+      "synthetic": true,
+      "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark",
+      "files": [
+        {
+          "path": "ALPHA10_LICENSE_FINAL_CONFIRMATION.md",
+          "cachePath": "jomb/alpha10/ALPHA10_LICENSE_FINAL_CONFIRMATION.md",
+          "sha256": "b4af15078f3e12d4b465a29a0ebccaa8efa7d5cbe84c9012a45a4d1e1267eddb",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/ALPHA10_LICENSE_FINAL_CONFIRMATION.md"
+        },
+        {
+          "path": "LICENSE_NOTICE.md",
+          "cachePath": "jomb/alpha10/LICENSE_NOTICE.md",
+          "sha256": "f1b53cf5e777b671b718d19fa2da06eda41fcd1e2fdc0a1eaa4c58df872ee306",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/LICENSE_NOTICE.md"
+        },
+        {
+          "path": "README.md",
+          "cachePath": "jomb/alpha10/README.md",
+          "sha256": "076fa6310f41e59d626bb6b737e7454ad2d6a00421462f3c5e025e892c5f0fd0",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/README.md"
+        },
+        {
+          "path": "alpha10_manifest.csv",
+          "cachePath": "jomb/alpha10/alpha10_manifest.csv",
+          "sha256": "f35c5bc83dbba8e99a1786dba60984d9c92e5a7cc6ce5e2fceb9c9a69c901128",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/alpha10_manifest.csv"
+        },
+        {
+          "path": "alpha10_manifest.json",
+          "cachePath": "jomb/alpha10/alpha10_manifest.json",
+          "sha256": "0b08178c267abb15a9ea99416ba532a0a8281ba1d7f7c4e431b246ca71f5d5dd",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/alpha10_manifest.json"
+        },
+        {
+          "path": "alpha10_public_safety_scan.md",
+          "cachePath": "jomb/alpha10/alpha10_public_safety_scan.md",
+          "sha256": "5e1d980dca7219b24833764a18a41abdd41ab54097fa5ccac656412916e5cd9a",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/alpha10_public_safety_scan.md"
+        },
+        {
+          "path": "images/CASE-000010_GEN-CASE-000010-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000010_GEN-CASE-000010-02_clean.png",
+          "sha256": "54f59880cc82c258f4dca1d23bb935b7949e1fa5e1f25020f7a30dc5f1b3f92f",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000010_GEN-CASE-000010-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000014_GEN-CASE-000014-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000014_GEN-CASE-000014-02_clean.png",
+          "sha256": "ef94246ddb8f1983ba3776e4860be5b324781bdd3dbe40aafc32f9976c4813cd",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000014_GEN-CASE-000014-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000015_GEN-CASE-000015-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000015_GEN-CASE-000015-02_clean.png",
+          "sha256": "85f3c05674322d9e4fbc3747363fb59fefb2e497c505368cfc2766a26608462c",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000015_GEN-CASE-000015-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000029_GEN-CASE-000029-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000029_GEN-CASE-000029-02_clean.png",
+          "sha256": "46623582193ce9ffa23b7df8b6a16c328f7c030cbd332a0e12bba8a8674e8f26",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000029_GEN-CASE-000029-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000032_GEN-CASE-000032-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000032_GEN-CASE-000032-02_clean.png",
+          "sha256": "ac518eed1b41184f753bc13382fc4cffbce75a8cb0f07a153a8831d8fdf86acd",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000032_GEN-CASE-000032-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000033_GEN-CASE-000033-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000033_GEN-CASE-000033-02_clean.png",
+          "sha256": "d202dcc32e4bbf64d7bb10ab32e9b0758bd478f6aa38d24c5f846fa2d44a7b5e",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000033_GEN-CASE-000033-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000045_GEN-CASE-000045-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000045_GEN-CASE-000045-02_clean.png",
+          "sha256": "e2837eb5c7d337d7a1bd1618e0a456217017ce6c1f48e08237ed8dc21d30cdc6",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000045_GEN-CASE-000045-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000049_GEN-CASE-000049-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000049_GEN-CASE-000049-02_clean.png",
+          "sha256": "13ccc677d849bbdb38537b1d1e7c24d75245dc673a54eb6cbf96e6cb3985c4a4",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000049_GEN-CASE-000049-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000051_GEN-CASE-000051-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000051_GEN-CASE-000051-02_clean.png",
+          "sha256": "a6ab4cacef5add2670075f707830d505e221288e8915e5c8719492e4f30704ee",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000051_GEN-CASE-000051-02_clean.png"
+        },
+        {
+          "path": "images/CASE-000062_GEN-CASE-000062-02_clean.png",
+          "cachePath": "jomb/alpha10/images/CASE-000062_GEN-CASE-000062-02_clean.png",
+          "sha256": "7bbb9b395fb08524443562850c15b562dcc72db70f6d4384d8bf552668f342a2",
+          "kind": "image",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/images/CASE-000062_GEN-CASE-000062-02_clean.png"
+        },
+        {
+          "path": "metadata/CASE-000010_GEN-CASE-000010-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000010_GEN-CASE-000010-02_public_metadata.json",
+          "sha256": "44df23a7c5355982ea782377d2541ae9164993626d4e4929e2cd17889803c226",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000010_GEN-CASE-000010-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000014_GEN-CASE-000014-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000014_GEN-CASE-000014-02_public_metadata.json",
+          "sha256": "1c8f893c62cd995bb8b7fca5a64ab1188c0614b2f682519e51233ada782779d8",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000014_GEN-CASE-000014-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000015_GEN-CASE-000015-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000015_GEN-CASE-000015-02_public_metadata.json",
+          "sha256": "2627a3c9dff28ee72691205ceb50f1f255033d2e4708976f0337cf2deff324b9",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000015_GEN-CASE-000015-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000029_GEN-CASE-000029-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000029_GEN-CASE-000029-02_public_metadata.json",
+          "sha256": "7606cbfc37282ad33848b52fd7d121187124365002f1fd07ecdd23ddfe685d37",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000029_GEN-CASE-000029-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000032_GEN-CASE-000032-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000032_GEN-CASE-000032-02_public_metadata.json",
+          "sha256": "09b6db737d2c8028c8d487e4447d0e4540a07a92ac46db5ee41a0ee30c9e05a2",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000032_GEN-CASE-000032-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000033_GEN-CASE-000033-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000033_GEN-CASE-000033-02_public_metadata.json",
+          "sha256": "72f91539c1aff5e92fc8db12baffdad08767587d89335b321a6587270f8fbc38",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000033_GEN-CASE-000033-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000045_GEN-CASE-000045-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000045_GEN-CASE-000045-02_public_metadata.json",
+          "sha256": "1fc90ad5b9e96b10823943921acfe4bc9232ac15f37672e854f1ae9af8fb49b6",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000045_GEN-CASE-000045-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000049_GEN-CASE-000049-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000049_GEN-CASE-000049-02_public_metadata.json",
+          "sha256": "242eb3ba5aa8b6fdea112f611e97a20d8d7274b6a24bcb267ba20601edb8ec94",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000049_GEN-CASE-000049-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000051_GEN-CASE-000051-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000051_GEN-CASE-000051-02_public_metadata.json",
+          "sha256": "86f03186fe9b4596bec353ff84874a3ed669b2014c1484be80c92e8a0e39f869",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000051_GEN-CASE-000051-02_public_metadata.json"
+        },
+        {
+          "path": "metadata/CASE-000062_GEN-CASE-000062-02_public_metadata.json",
+          "cachePath": "jomb/alpha10/metadata/CASE-000062_GEN-CASE-000062-02_public_metadata.json",
+          "sha256": "6cf5be27c769b204f7f32232a489f0dfc8e7c7c6e66564be27a5f77ceed975ea",
+          "kind": "notice",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/metadata/CASE-000062_GEN-CASE-000062-02_public_metadata.json"
+        },
+        {
+          "path": "source_json/CASE-000010_GEN-CASE-000010-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000010_GEN-CASE-000010-02_public_source.json",
+          "sha256": "3d5a53b3d81c78f1025c0c0008d6b219b87673c5ffbdd32b9365bdcf26b7e05f",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000010_GEN-CASE-000010-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000014_GEN-CASE-000014-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000014_GEN-CASE-000014-02_public_source.json",
+          "sha256": "d4c619da07da7f512929a7577a11fc4d852fcb9a3e23df5c3fd36bba3d9ad54a",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000014_GEN-CASE-000014-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000015_GEN-CASE-000015-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000015_GEN-CASE-000015-02_public_source.json",
+          "sha256": "e38469f3957a8a1cb9cf588b8fce923f3dc83bf672c613faff9affafb8951154",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000015_GEN-CASE-000015-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000029_GEN-CASE-000029-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000029_GEN-CASE-000029-02_public_source.json",
+          "sha256": "c9a3dcd27120520ed2f44526da76af4ddb838074543cf9c61950ddf0dc7a0227",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000029_GEN-CASE-000029-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000032_GEN-CASE-000032-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000032_GEN-CASE-000032-02_public_source.json",
+          "sha256": "fbc960a6b1722be67758a8b5c1918d47c5234226f76cf3dde8c4ce1b22506cfd",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000032_GEN-CASE-000032-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000033_GEN-CASE-000033-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000033_GEN-CASE-000033-02_public_source.json",
+          "sha256": "034cdd5cc7577fd7da24c67d7f259027cc948c6e141874301f16f958037f4fc2",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000033_GEN-CASE-000033-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000045_GEN-CASE-000045-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000045_GEN-CASE-000045-02_public_source.json",
+          "sha256": "890efbbc7c92e09e3fe0554c5b9bf167c67141b1e4633dc38a9fddd92565e030",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000045_GEN-CASE-000045-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000049_GEN-CASE-000049-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000049_GEN-CASE-000049-02_public_source.json",
+          "sha256": "f402d748c036c9657e8bc3d269c5738318d4bce96e65287df22a5ee382388807",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000049_GEN-CASE-000049-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000051_GEN-CASE-000051-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000051_GEN-CASE-000051-02_public_source.json",
+          "sha256": "04b1728c67212a8347caf6de6f03947d049e22bbf83cca843b746cf738abefa2",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000051_GEN-CASE-000051-02_public_source.json"
+        },
+        {
+          "path": "source_json/CASE-000062_GEN-CASE-000062-02_public_source.json",
+          "cachePath": "jomb/alpha10/source_json/CASE-000062_GEN-CASE-000062-02_public_source.json",
+          "sha256": "0b7b8b823c72c045e269ddcd382116408ed8edb7acf2dce8043f2b97fb5a425a",
+          "kind": "ground_truth",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000062_GEN-CASE-000062-02_public_source.json"
+        }
+      ],
+      "records": [
+        {
+          "id": "jomb-CASE-000010",
+          "image": "images/CASE-000010_GEN-CASE-000010-02_clean.png",
+          "groundTruth": "source_json/CASE-000010_GEN-CASE-000010-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000010_GEN-CASE-000010-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000014",
+          "image": "images/CASE-000014_GEN-CASE-000014-02_clean.png",
+          "groundTruth": "source_json/CASE-000014_GEN-CASE-000014-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000014_GEN-CASE-000014-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000015",
+          "image": "images/CASE-000015_GEN-CASE-000015-02_clean.png",
+          "groundTruth": "source_json/CASE-000015_GEN-CASE-000015-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000015_GEN-CASE-000015-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000029",
+          "image": "images/CASE-000029_GEN-CASE-000029-02_clean.png",
+          "groundTruth": "source_json/CASE-000029_GEN-CASE-000029-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000029_GEN-CASE-000029-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000032",
+          "image": "images/CASE-000032_GEN-CASE-000032-02_clean.png",
+          "groundTruth": "source_json/CASE-000032_GEN-CASE-000032-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000032_GEN-CASE-000032-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000033",
+          "image": "images/CASE-000033_GEN-CASE-000033-02_clean.png",
+          "groundTruth": "source_json/CASE-000033_GEN-CASE-000033-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000033_GEN-CASE-000033-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000045",
+          "image": "images/CASE-000045_GEN-CASE-000045-02_clean.png",
+          "groundTruth": "source_json/CASE-000045_GEN-CASE-000045-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000045_GEN-CASE-000045-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000049",
+          "image": "images/CASE-000049_GEN-CASE-000049-02_clean.png",
+          "groundTruth": "source_json/CASE-000049_GEN-CASE-000049-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000049_GEN-CASE-000049-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000051",
+          "image": "images/CASE-000051_GEN-CASE-000051-02_clean.png",
+          "groundTruth": "source_json/CASE-000051_GEN-CASE-000051-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000051_GEN-CASE-000051-02_public_source.json"
+        },
+        {
+          "id": "jomb-CASE-000062",
+          "image": "images/CASE-000062_GEN-CASE-000062-02_clean.png",
+          "groundTruth": "source_json/CASE-000062_GEN-CASE-000062-02_public_source.json",
+          "split": "dev",
+          "sourceUrl": "https://huggingface.co/datasets/K10124/japan-ocr-mini-benchmark/resolve/c82efda5b823494424e6bc6e9ae7577396ded908/alpha10/source_json/CASE-000062_GEN-CASE-000062-02_public_source.json"
+        }
+      ]
+    }
+  ]
+}

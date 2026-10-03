@@ -165,6 +165,10 @@ test('missing, duplicate and unknown predictions are never silently dropped', ()
   const report = evaluateManifest(manifest, [dev], 'dev');
   assert.equal(report.summary.fixtures, 1);
   assert.equal(report.bySplit.holdout.totalAccuracy, null);
+  assert.equal(report.bySplit.holdout.exactItems.precision, null);
+  assert.equal(report.bySplit.holdout.exactItems.recall, null);
+  assert.equal(report.bySplit.holdout.exactItems.f1, null);
+  assert.equal(report.bySplit.holdout.amountQuantity.f1, null);
 });
 
 test('empty receipt and failed OCR have distinct total outcomes', () => {

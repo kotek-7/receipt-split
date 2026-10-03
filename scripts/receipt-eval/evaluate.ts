@@ -124,8 +124,8 @@ export function evaluateManifest(
       };
     });
   const aggregate = (rows: typeof fixtures) => {
-    const sum = (field: 'exactItems' | 'amountQuantity') =>
-      metrics(
+    const sum = (field: 'exactItems' | 'amountQuantity') => {
+      const result = metrics(
         rows.reduce(
           (result, row) => ({
             matched: result.matched + row[field].matched,
@@ -135,6 +135,9 @@ export function evaluateManifest(
           { matched: 0, expected: 0, predicted: 0 },
         ),
       );
+      // An unmeasured split is not a perfectly recognized empty receipt.
+      return rows.length ? result : { ...result, precision: null, recall: null, f1: null };
+    };
     const totalCorrect = rows.filter(({ totalExact }) => totalExact).length;
     return {
       fixtures: rows.length,
