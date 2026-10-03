@@ -9,12 +9,17 @@ import {
   getSelectionQuantity,
 } from '../shared/settlement';
 import type { Identity, Room, SessionResponse } from '../shared/types';
+import { receiptRateLimitKey } from './receipt-rate-limit';
+import { ReceiptScanBudget, type ReceiptScanBudgetEnv } from './receipt-scan-budget';
 
-export interface Env {
+export { ReceiptScanBudget };
+
+export interface Env extends ReceiptScanBudgetEnv {
   ROOMS: DurableObjectNamespace<ReceiptRoom>;
   ASSETS: Fetcher;
   AI?: Ai;
   RECEIPT_SCAN_LIMITER?: RateLimit;
+  RECEIPT_SCAN_BUDGET?: DurableObjectNamespace<ReceiptScanBudget>;
 }
 
 const nameSchema = z.string().trim().min(1).max(24);
@@ -405,14 +410,15 @@ export default {
       const url = new URL(request.url);
       if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true });
       if (url.pathname === '/api/receipt-reader' && request.method === 'GET') {
-        return json({ ai: Boolean(env.AI && env.RECEIPT_SCAN_LIMITER) });
+        return json({ ai: Boolean(env.AI && env.RECEIPT_SCAN_LIMITER && env.RECEIPT_SCAN_BUDGET) });
       }
       if (url.pathname === '/api/receipt-scan' && request.method === 'POST') {
         const ai = env.AI;
         const limiter = env.RECEIPT_SCAN_LIMITER;
+        const budget = env.RECEIPT_SCAN_BUDGET;
         return scanReceiptRequest(request, {
           run:
-            ai && limiter
+            ai && limiter && budget
               ? async (input, signal) => {
                   // Read this call's status directly; binding-level lastRequest fields are shared.
                   const response = await ai.run(RECEIPT_AI_MODEL, input, {
@@ -434,9 +440,12 @@ export default {
             ? async () =>
                 (
                   await limiter.limit({
-                    key: `receipt-scan:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`,
+                    key: receiptRateLimitKey(request.headers.get('CF-Connecting-IP')),
                   })
                 ).success
+            : undefined,
+          allowAttempt: budget
+            ? () => budget.get(budget.idFromName('global')).consume()
             : undefined,
         });
       }

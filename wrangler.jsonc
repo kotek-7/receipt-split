@@ -12,6 +12,7 @@
     "run_worker_first": ["/api", "/api/*"],
   },
   "ai": { "binding": "AI" },
+  "vars": { "RECEIPT_SCAN_DAILY_LIMIT": "200" },
   "ratelimits": [
     {
       "name": "RECEIPT_SCAN_LIMITER",
@@ -20,7 +21,13 @@
     },
   ],
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "ReceiptRoom" }],
+    "bindings": [
+      { "name": "ROOMS", "class_name": "ReceiptRoom" },
+      { "name": "RECEIPT_SCAN_BUDGET", "class_name": "ReceiptScanBudget" },
+    ],
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReceiptRoom"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ReceiptRoom"] },
+    { "tag": "v2", "new_sqlite_classes": ["ReceiptScanBudget"] },
+  ],
 }

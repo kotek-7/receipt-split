@@ -185,6 +185,168 @@ test('rate limiting and unavailable AI do not call the model', async () => {
   assert.equal((await scanReceiptRequest(request(), {})).status, 503);
 });
 
+test('rejected origin, image and IP limits do not spend the global inference budget', async () => {
+  for (const [req, allow, expected] of [
+    [request(png, { Origin: 'https://other.test' }), true, 403],
+    [request(png, { 'Content-Type': 'text/plain' }), true, 415],
+    [request(new Uint8Array([1, 2, 3])), true, 400],
+    [request(), false, 429],
+  ] as const) {
+    const result = await scanReceiptRequest(req, {
+      allow: async () => allow,
+      allowAttempt: async () => assert.fail('rejected input must not consume budget'),
+      run: async () => assert.fail('rejected input must not reach the provider'),
+    });
+    assert.equal(result.status, expected);
+  }
+});
+
+test('daily budget exhaustion stops JSON and NDJSON before any provider call', async () => {
+  for (const streaming of [false, true]) {
+    let budgetCalls = 0;
+    const response = await scanReceiptRequest(request(png, streaming ? progressHeaders : {}), {
+      allowAttempt: async () => {
+        budgetCalls++;
+        return false;
+      },
+      run: async () => assert.fail('exhausted budget must not reach the provider'),
+    });
+    const text = await response.text();
+    assert.equal(budgetCalls, 1);
+    assert.match(text, /本日の読み取り上限/);
+    assert.match(text, /手入力/);
+    assert.equal(
+      response.headers.get('Retry-After'),
+      null,
+      'a daily limit must not promise 60 seconds',
+    );
+    if (streaming) {
+      const rows = events(text);
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].type, 'error');
+      if (rows[0].type === 'error') assert.equal(rows[0].status, 429);
+    } else assert.equal(response.status, 429);
+  }
+});
+
+test('each model call consumes budget, including failures and allowed retries', async () => {
+  for (const mode of ['success', 'failure', 'invalid', 'retry'] as const) {
+    const sequence: string[] = [];
+    let calls = 0;
+    const response = await scanReceiptRequest(request(), {
+      allowAttempt: async () => {
+        sequence.push('budget');
+        return true;
+      },
+      run: async () => {
+        sequence.push('model');
+        calls++;
+        if (mode === 'failure') throw new Error('private-provider-failure');
+        if (mode === 'invalid') return {};
+        if (mode === 'retry' && calls === 1) throw new RetryableReceiptAiError();
+        return output;
+      },
+    });
+    assert.equal(response.status, mode === 'failure' ? 502 : mode === 'invalid' ? 422 : 200);
+    assert.deepEqual(
+      sequence,
+      mode === 'retry' ? ['budget', 'model', 'budget', 'model'] : ['budget', 'model'],
+    );
+  }
+});
+
+test('the daily budget can stop a retry without announcing an unstarted attempt', async () => {
+  for (const streaming of [false, true]) {
+    let budgetCalls = 0;
+    let providerCalls = 0;
+    const response = await scanReceiptRequest(request(png, streaming ? progressHeaders : {}), {
+      allowAttempt: async () => ++budgetCalls === 1,
+      run: async () => {
+        providerCalls++;
+        throw new RetryableReceiptAiError();
+      },
+    });
+    const text = await response.text();
+    assert.equal(providerCalls, 1);
+    assert.equal(budgetCalls, 2);
+    assert.match(text, /本日の読み取り上限/);
+    if (streaming) {
+      const rows = events(text);
+      assert.deepEqual(rows[0], { type: 'progress', stage: 'reading', attempt: 1 });
+      assert.equal(rows.length, 2);
+      assert.equal(rows[1].type, 'error');
+      if (rows[1].type === 'error') assert.equal(rows[1].status, 429);
+    } else assert.equal(response.status, 429);
+  }
+});
+
+test('budget service errors fail closed and do not expose internal details', async () => {
+  const response = await scanReceiptRequest(request(), {
+    allowAttempt: async () => {
+      throw new Error('private-budget-failure');
+    },
+    run: async () => assert.fail('budget service failure must not reach the provider'),
+  });
+  assert.equal(response.status, 503);
+  const text = await response.text();
+  assert.match(text, /手入力/);
+  assert.doesNotMatch(text, /private-budget-failure/);
+});
+
+test(
+  'budget waits honor the deadline and cancellation without late provider calls',
+  { timeout: 2000 },
+  async () => {
+    for (const mode of ['deadline', 'cancel'] as const) {
+      const budget = deferred<boolean>();
+      const started = deferred<void>();
+      const controller = new AbortController();
+      let calls = 0;
+      const pending = scanReceiptRequest(request(png, {}, controller.signal), {
+        timeoutMs: mode === 'deadline' ? 15 : 1000,
+        allowAttempt: () => {
+          started.resolve();
+          return budget.promise;
+        },
+        run: async () => {
+          calls++;
+          return output;
+        },
+      });
+      await started.promise;
+      if (mode === 'cancel') controller.abort();
+      const response = await pending;
+      assert.equal(response.status, mode === 'deadline' ? 504 : 499);
+      budget.resolve(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      assert.equal(calls, 0, 'late budget approval cannot start cancelled inference');
+    }
+  },
+);
+
+test('cancelling a stream while waiting for budget never starts model inference', async () => {
+  const budget = deferred<boolean>();
+  const started = deferred<void>();
+  let calls = 0;
+  const response = await scanReceiptRequest(request(png, progressHeaders), {
+    allowAttempt: () => {
+      started.resolve();
+      return budget.promise;
+    },
+    run: async () => {
+      calls++;
+      return output;
+    },
+  });
+  await started.promise;
+  await response.body!.cancel();
+  budget.resolve(true);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(calls, 0);
+});
+
 test('invalid model output and provider failures never expose raw output or secrets', async () => {
   let invalidCalls = 0;
   const invalid = await scanReceiptRequest(request(), {

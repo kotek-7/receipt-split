@@ -17,6 +17,7 @@ export type ReceiptAiRunner = (input: ReceiptAiInput, signal: AbortSignal) => Pr
 export interface ReceiptScanOptions {
   run?: ReceiptAiRunner;
   allow?: () => Promise<boolean>;
+  allowAttempt?: () => Promise<boolean>;
   timeoutMs?: number;
 }
 
@@ -33,16 +34,32 @@ async function runWithOneRetry(
   input: ReceiptAiInput,
   signal: AbortSignal,
   onAttempt?: (attempt: number) => void,
+  allowAttempt?: () => Promise<boolean>,
 ): Promise<unknown> {
-  signal.throwIfAborted();
-  onAttempt?.(1);
+  const attempt = async (number: number) => {
+    signal.throwIfAborted();
+    if (allowAttempt) {
+      let allowed: boolean;
+      try {
+        allowed = await untilAborted(allowAttempt(), signal);
+      } catch {
+        signal.throwIfAborted();
+        throw new ScanError(503, '画像を読み取れません。手入力で続けてください。');
+      }
+      signal.throwIfAborted();
+      if (allowed !== true)
+        throw new ScanError(429, '本日の読み取り上限に達しました。手入力で続けてください。');
+    }
+    onAttempt?.(number);
+    signal.throwIfAborted();
+    return run(input, signal);
+  };
   try {
-    return await run(input, signal);
+    return await attempt(1);
   } catch (error) {
     signal.throwIfAborted();
     if (!(error instanceof RetryableReceiptAiError)) throw error;
-    onAttempt?.(2);
-    return run(input, signal);
+    return attempt(2);
   }
 }
 
@@ -64,6 +81,7 @@ class ScanError extends Error {
   constructor(
     public status: number,
     message: string,
+    public retryAfter?: string,
   ) {
     super(message);
   }
@@ -81,13 +99,13 @@ function failure(error: unknown): Extract<ReceiptScanEvent, { type: 'error' }> {
   };
 }
 
-function json(value: unknown, status = 200): Response {
+function json(value: unknown, status = 200, retryAfter?: string): Response {
   return Response.json(value, {
     status,
     headers: {
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
-      ...(status === 429 ? { 'Retry-After': '60' } : {}),
+      ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
     },
   });
 }
@@ -194,14 +212,18 @@ export async function scanReceiptRequest(
       );
     controller.signal.throwIfAborted();
     if (options.allow && !(await untilAborted(options.allow(), controller.signal)))
-      throw new ScanError(429, '続けて読み取る場合は、1分ほど待ってください。');
+      throw new ScanError(429, '続けて読み取る場合は、1分ほど待ってください。', '60');
     const { bytes, mime } = await imageBytes(request, controller.signal);
     const input = buildReceiptAiInput(dataUrl(bytes, mime));
     const run = options.run;
     const readReceipt = async (emit?: (event: ReceiptScanEvent) => void) => {
       const response = await untilAborted(
-        runWithOneRetry(run, input, controller.signal, (attempt) =>
-          emit?.({ type: 'progress', stage: 'reading', attempt }),
+        runWithOneRetry(
+          run,
+          input,
+          controller.signal,
+          (attempt) => emit?.({ type: 'progress', stage: 'reading', attempt }),
+          options.allowAttempt,
         ),
         controller.signal,
       );
@@ -254,7 +276,11 @@ export async function scanReceiptRequest(
     return json({ receipt: await readReceipt() });
   } catch (error) {
     const result = failure(error);
-    return json({ error: result.error }, result.status);
+    return json(
+      { error: result.error },
+      result.status,
+      error instanceof ScanError ? error.retryAfter : undefined,
+    );
   } finally {
     // The response body owns cleanup after it starts; its work outlives this function.
     if (!streaming) cleanup();
