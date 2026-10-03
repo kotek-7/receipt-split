@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Identity, ParsedReceipt, ReceiptItem, Room, SessionResponse } from '../shared/types';
+import type { ReceiptScanProgress } from '../shared/receipt-progress';
 import { calculateSettlement, getItemSplitMode, getSelectionQuantity } from '../shared/settlement';
 import { createItemId } from '../shared/id';
 import { canSaveSession, getIdentity, getRecents, getRoom, request, saveSession } from './api';
@@ -32,6 +33,7 @@ import AmountRatio from './AmountRatio';
 import QuantityTiles from './QuantityTiles';
 import LandingGuide from './LandingGuide';
 import BrandMark from './BrandMark';
+import ScanProgress from './ScanProgress';
 import type { ReceiptReader } from './ocr';
 
 const yen = (n: number) =>
@@ -83,7 +85,7 @@ export default function App() {
   const [draft, setDraft] = useState<ParsedReceipt>();
   const [createdRoomId, setCreatedRoomId] = useState<string>();
   const [photo, setPhoto] = useState<string>();
-  const [scan, setScan] = useState<number | null>(null);
+  const [scan, setScan] = useState<ReceiptScanProgress | null>(null);
   const [error, setError] = useState('');
   const [help, setHelp] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -150,7 +152,7 @@ export default function App() {
     if (gallery.current) gallery.current.value = '';
     setError('');
     setRetryPhoto(undefined);
-    setScan(0);
+    setScan({ stage: 'preparing' });
     try {
       const { recognizeReceipt } = await import('./ocr');
       const { receipt: result, preview } = await recognizeReceipt(
@@ -292,22 +294,7 @@ export default function App() {
                 </div>
                 {scan !== null ? (
                   <>
-                    <h3>レシートを読み取り中…</h3>
-                    {reader === 'ai' ? (
-                      <p role="status">
-                        <Spinner /> 品名・数量・金額を確認しています
-                      </p>
-                    ) : (
-                      <>
-                        <p>初回は少し時間がかかります</p>
-                        <div className="progress-track">
-                          <span style={{ width: `${scan}%` }} />
-                        </div>
-                        <span className="progress-text" role="status">
-                          {Math.round(scan)}%
-                        </span>
-                      </>
-                    )}
+                    <ScanProgress progress={scan} reader={reader} />
                     <button className="text-button" onClick={() => activeScan.current?.abort()}>
                       中止
                     </button>

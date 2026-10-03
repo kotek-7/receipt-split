@@ -1,7 +1,9 @@
 import type { Worker } from 'tesseract.js';
 import { parseReceipt } from '../shared/parse-receipt.ts';
 import type { ParsedReceipt } from '../shared/types.ts';
+import type { ReceiptScanProgress } from '../shared/receipt-progress';
 import { prepareReceiptImage } from './prepare-image';
+import { scanReceiptImage } from './receipt-scan';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
@@ -25,7 +27,7 @@ export type ReceiptReader = 'ai' | 'local';
 /** AI uploads only the prepared image; local mode never sends the photo. */
 export async function recognizeReceipt(
   file: File,
-  onProgress: (progress: number) => void,
+  onProgress: (progress: ReceiptScanProgress) => void,
   signal: AbortSignal,
   reader: ReceiptReader = 'local',
 ): Promise<{ receipt: ParsedReceipt; preview: Blob }> {
@@ -47,45 +49,38 @@ export async function recognizeReceipt(
     throw new Error('写真の読み取りはブラウザーでご利用ください。');
 
   let worker: Worker | undefined;
-  let progress = 0;
-  const report = (value: number) => {
-    if (signal.aborted) return;
-    const next = Math.max(progress, Math.min(100, Math.round(value)));
-    if (next !== progress) {
-      progress = next;
-      onProgress(next);
-    }
+  const report = (progress: ReceiptScanProgress) => {
+    if (!signal.aborted) onProgress(progress);
   };
-  report(1);
+  report({ stage: 'preparing' });
   try {
     const image = await prepareReceiptImage(file, signal);
-    report(5);
+    signal.throwIfAborted();
     if (reader === 'ai') {
       if (image.size > 8 * 1024 * 1024)
         throw new Error('画像が大きすぎます。小さい画像を選ぶか、撮り直してください。');
-      const response = await fetch('/api/receipt-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': image.type },
-        body: image,
-        signal: AbortSignal.any([signal, AbortSignal.timeout(50_000)]),
-      });
-      const result = (await response.json()) as { receipt?: ParsedReceipt; error?: string };
-      if (!response.ok || !result.receipt)
-        throw new Error(result.error || '読み取れませんでした。もう一度お試しください。');
+      report({ stage: 'uploading' });
+      const receipt = await scanReceiptImage(image, report, signal);
       signal.throwIfAborted();
-      report(100);
-      return { receipt: result.receipt, preview: image };
+      return { receipt, preview: image };
     }
+    report({ stage: 'loading' });
     const { createWorker, PSM } = await import('tesseract.js');
     signal.throwIfAborted();
+    let progress = -1;
     // Keep initialization awaited even after cancellation, so its eventual worker
     // is terminated before the UI allows another memory-heavy recognition job.
     worker = await createWorker(['jpn', 'eng'], 1, {
       logger: ({ status, progress: stageProgress }) => {
-        if (status === 'recognizing text') report(35 + stageProgress * 63);
-        else if (status === 'loading language traineddata') report(12 + stageProgress * 18);
-        else if (status === 'initializing api') report(30 + stageProgress * 4);
-        else report(6 + stageProgress * 5);
+        if (status !== 'recognizing text' || !Number.isFinite(stageProgress)) return;
+        const next = Math.max(
+          progress,
+          Math.min(100, Math.max(0, Math.round(stageProgress * 100))),
+        );
+        if (next !== progress) {
+          progress = next;
+          report({ stage: 'reading', percent: next });
+        }
       },
     });
     signal.throwIfAborted();
@@ -98,13 +93,17 @@ export async function recognizeReceipt(
       signal,
     );
     signal.throwIfAborted();
+    report({ stage: 'reading' });
+    signal.throwIfAborted();
     const { data } = await untilAborted(worker.recognize(image), signal);
+    signal.throwIfAborted();
     if (!data.text.trim())
       throw new Error(
         '文字が見つかりませんでした。レシートを明るい場所で、正面から撮ってください。',
       );
+    report({ stage: 'checking' });
+    signal.throwIfAborted();
     const parsed = parseReceipt(data.text);
-    report(100);
     return { receipt: parsed, preview: image };
   } catch (error) {
     signal.throwIfAborted();

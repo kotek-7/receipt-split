@@ -8,6 +8,7 @@ import {
   type HTMLElement as HappyElement,
 } from 'happy-dom';
 import { act, createElement } from 'react';
+import type { ReceiptScanEvent } from '../shared/receipt-progress';
 import type { ParsedReceipt, ReceiptItem, Room } from '../shared/types';
 
 // The application imports camera styles; Vite loads those in the browser.
@@ -106,6 +107,8 @@ async function mountApp(
   let selectionWait: Promise<void> | undefined;
   const scanRequests: Blob[] = [];
   const scanFailures: string[] = [];
+  let scanWait:
+    { response: Promise<Response>; started: (request: RequestInit) => void } | undefined;
   let receiptRead: (() => void) | undefined;
   let scanned = new Promise<void>((resolve) => {
     receiptRead = resolve;
@@ -126,6 +129,12 @@ async function mountApp(
       scanned = new Promise<void>((resolve) => {
         receiptRead = resolve;
       });
+      if (scanWait) {
+        const waiting = scanWait;
+        scanWait = undefined;
+        waiting.started(init);
+        return waiting.response;
+      }
       const error = scanFailures.shift();
       if (error) return Response.json({ error }, { status: 502 });
       return Response.json({ receipt: scannedReceipt });
@@ -269,6 +278,48 @@ async function mountApp(
     failNextScan(message: string) {
       scanFailures.push(message);
     },
+    holdNextScan() {
+      let release!: (response: Response) => void;
+      let controller!: ReadableStreamDefaultController<Uint8Array>;
+      let signal: AbortSignal | null | undefined;
+      let cancelled = false;
+      const body = new ReadableStream<Uint8Array>({
+        start(value) {
+          controller = value;
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      scanWait = {
+        response: new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+        started(request) {
+          assert.equal(new Headers(request.headers).get('Accept'), 'application/x-ndjson');
+          signal = request.signal;
+        },
+      };
+      return {
+        get signal() {
+          assert.ok(signal, 'photo request must include an abort signal');
+          return signal;
+        },
+        get cancelled() {
+          return cancelled;
+        },
+        async respond() {
+          await act(async () => {
+            release(new Response(body, { headers: { 'Content-Type': 'application/x-ndjson' } }));
+          });
+        },
+        async send(event: ReceiptScanEvent) {
+          await act(async () => {
+            controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`));
+          });
+        },
+      };
+    },
     async retryPhoto() {
       const pending = scanned;
       await act(async () => {
@@ -398,6 +449,114 @@ test('unavailable AI and a failed capability request keep local photo reading us
     });
   }
 });
+
+test(
+  'AI scan steps follow delayed server events without inventing timed progress or percentages',
+  { timeout: 5000 },
+  async (t) => {
+    const receipt: ParsedReceipt = {
+      title: '夕食',
+      total: 600,
+      rawText: '',
+      items: [{ id: 'drink', name: 'ビール', amount: 600, quantity: 1, splitMode: 'quantity' }],
+    };
+    const app = await mountApp(t, undefined, true, true, receipt);
+    const { file } = mockReceiptPhoto(t, app.window);
+    const stream = app.holdNextScan();
+    let elapsed = 0;
+    t.mock.method(performance, 'now', () => elapsed);
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
+    const currentStep = () =>
+      app.host.querySelector('.scan-steps [aria-current="step"] .scan-step-label')?.textContent;
+    const assertNoPercent = () => {
+      assert.equal(app.host.querySelector('[role="progressbar"]'), null);
+      assert.doesNotMatch(app.host.querySelector('.scan-progress')!.textContent, /\d+%/);
+    };
+
+    await app.uploadPhoto(file);
+    assert.equal(currentStep(), '写真を送る');
+    assert.equal(
+      app.host.querySelector('.scan-steps .is-done .scan-step-label')?.textContent,
+      '写真を整える：完了',
+    );
+    assertNoPercent();
+    await act(async () => {
+      elapsed = 12_000;
+      t.mock.timers.tick(12_000);
+    });
+    assert.equal(app.host.querySelector('[role="timer"]')?.textContent, '12秒');
+    assert.equal(currentStep(), '写真を送る', 'elapsed time cannot advance the server stage');
+
+    await stream.respond();
+    assert.equal(currentStep(), '写真を送る', 'headers alone do not mean reading has started');
+    await stream.send({ type: 'progress', stage: 'reading', attempt: 1 });
+    assert.equal(currentStep(), '品名・金額を読む');
+    assert.equal(app.host.querySelector('[role="status"]')?.textContent, '品名・金額を読む');
+    assertNoPercent();
+    await act(async () => {
+      elapsed = 20_000;
+      t.mock.timers.tick(8_000);
+    });
+    assert.equal(currentStep(), '品名・金額を読む', 'waiting cannot invent a checking event');
+
+    await stream.send({ type: 'progress', stage: 'reading', attempt: 2 });
+    assert.equal(currentStep(), 'もう一度読み取り中');
+    assert.equal(app.scanRequests.length, 1, 'a server retry stays in the original upload');
+    assertNoPercent();
+    await stream.send({ type: 'progress', stage: 'checking' });
+    assert.equal(currentStep(), '数量・合計を確認');
+    assert.equal(app.host.querySelectorAll('.scan-steps .is-done').length, 3);
+    assert.equal(
+      app.host.querySelector('#receipt-total'),
+      null,
+      'progress does not create a draft',
+    );
+    assertNoPercent();
+
+    await stream.send({ type: 'result', receipt });
+    assert.equal(app.host.querySelector('.scan-progress'), null);
+    assert.equal(app.host.querySelector<HappyInput>('#receipt-total')?.value, '600');
+    assert.equal(
+      app.host.querySelector<HappyInput>('input[aria-label="1行目の品名"]')?.value,
+      'ビール',
+    );
+    assert.equal(stream.cancelled, true, 'a final result releases the still-open response body');
+    t.mock.timers.reset();
+  },
+);
+
+test(
+  'cancelling an AI scan aborts its pending stream read and never opens the editor',
+  { timeout: 5000 },
+  async (t) => {
+    const receipt: ParsedReceipt = {
+      title: '夕食',
+      total: 600,
+      rawText: '',
+      items: [{ id: 'drink', name: 'ビール', amount: 600, quantity: 1, splitMode: 'quantity' }],
+    };
+    const app = await mountApp(t, undefined, true, true, receipt);
+    const { file } = mockReceiptPhoto(t, app.window);
+    const stream = app.holdNextScan();
+    await app.uploadPhoto(file);
+    await stream.respond();
+    await stream.send({ type: 'progress', stage: 'reading' });
+    assert.equal(stream.signal.aborted, false);
+    assert.equal(stream.cancelled, false);
+    await app.click('中止');
+    assert.equal(stream.signal.aborted, true, 'the upload request must be aborted');
+    assert.equal(stream.cancelled, true, 'the pending response reader must be cancelled');
+    assert.equal(app.host.querySelector('.scan-progress'), null);
+    assert.equal(app.host.querySelector('#receipt-total'), null);
+    assert.equal(app.host.querySelector('.photo-panel img'), null);
+    assert.equal(
+      app.host.querySelector('[role="alert"]'),
+      null,
+      'user cancellation is not a scan error',
+    );
+    assert.equal(app.button('写真から選ぶ').disabled, false);
+  },
+);
 
 test(
   'retry reads the same photo through AI without asking for a reading method',
