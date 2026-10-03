@@ -2,10 +2,10 @@ import type { ParsedReceipt, ReceiptItem } from './types.ts';
 import { createItemId } from './id.ts';
 
 const TOTAL =
-  /^(?:(?:ご|お)?(?:請求|支払い?|会計)(?:金額|額|合計)?|(?:お買上げ?|お買い上げ)(?:金額|合計)|(?:税込み?|総)?合計(?:金額)?|現計|総額|grandtotal|total|amountdue)(?:[:：\s]|[¥\\\d]|$)/i;
+  /^(?:(?:ご|お)?(?:請求|支払い?|会計)(?:金額|額|合計)?|(?:お買上げ?|お買い上げ)(?:金額|合計)|(?:税込み?|総)?合計(?:金額)?|現計|総額|grandtotal|total|amountdue)(?:\((?:税込み?|税別|内税|外税)\))?(?:[:：\s]|[¥\\\d]|$)/i;
 const DISCOUNT = /値引|割引|クーポン|サービス値引|discount|coupon/i;
 const METADATA =
-  /小計|消費税|税額|内税|外税|税抜|税率|課税|対象|預[かり]*|釣[り銭]*|現金|クレジット|カード|電子マネー|ポイント|残高|支払方法|領収|レシート|レジ(?!袋)|担当|責任者|取引|伝票|注文番号|受付|登録番号|会員|電話|住所|営業時間|お客様|お客さま|ご利用|ありがとうございました|またの|subtotal|tax|cash|change|visa|mastercard|amex|tel|fax|www\.|https?:|receipt|thank\s*you|balance|payment|auth|invoice/i;
+  /小計|消費税|税額|内税|外税|税抜|税率|課税|対象|預[かり]*|釣[り銭]*|現金|クレジット|カード|電子マネー|ポイント|残高|支払方法|決済|paypay|suica|pasmo|icoca|領収|レシート|レジ(?!袋)|担当|責任者|取引|伝票|注文番号|受付|登録番号|会員|電話|住所|営業時間|お客様|お客さま|ご利用|ありがとうございました|またの|subtotal|tax|cash|change|visa|mastercard|amex|tel|fax|www\.|https?:|receipt|thank\s*you|balance|payment|auth|invoice/i;
 const MAX_AMOUNT = 10_000_000;
 
 function normalize(line: string): string {
@@ -25,6 +25,7 @@ function isMetadata(line: string): boolean {
   const value = compact(line);
   return (
     METADATA.test(value) ||
+    /card(?:[¥\\\d]|$)/i.test(value) ||
     /(?:\d{2,4}[年/.-]\d{1,2}[月/.-]\d{1,2}|\d{1,2}:\d{2}|\d{2,4}-\d{2,4}-\d{3,4})/.test(value) ||
     /^(?:〒|T\d{13}|[A-Z]?\d{8,}|[*Xx●]{3,})/.test(value) ||
     /(?:都|道|府|県|市|区|町|丁目).*(?:\d+-\d+|\d+番)/.test(value) ||
@@ -83,12 +84,15 @@ function priceAtEnd(line: string): { label: string; amount: number } | null {
 function cleanName(name: string): string {
   return name
     .replace(/^(?:[*※・#]+\s*|[AB](?:\s+|(?=#)))+/, '')
-    .replace(/\s+[¥￥]?\d[\d,]*\s*[×xX]\s*\d+\s*$/, '')
     .replace(
-      /\s+\d+\s*(?:コ|個|点|皿|本|杯|人前)\s*(?:[×xXメ]\s*)+(?:単\s*価?\s*)?[¥￥\\]?\s*\d+(?:\s*,\s*\d+)*(?:\s*円)?\s*$/,
+      /\s+(?:(?:単\s*価?|@)\s*[:：]?\s*)?[¥￥\\]?\d[\d,]*\s*[×xX]\s*\d+\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)?\s*$/,
       '',
     )
-    .replace(/\s+(?:[×xX]\s*\d+|\d+\s*(?:点|個|皿|本|杯|人前|コ))\s*$/, '')
+    .replace(
+      /\s+\d+\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)\s*(?:[×xXメ]\s*)+(?:(?:単\s*価?|@)\s*[:：]?\s*)?[¥￥\\]?\s*\d+(?:\s*,\s*\d+)*(?:\s*円)?\s*$/,
+      '',
+    )
+    .replace(/\s+(?:[×xX]\s*\d+|\d+\s*(?:点|個|皿|本|杯|人前|コ|箱|袋|名))\s*$/, '')
     .replace(/\s*[:：]\s*$/, '')
     .trim();
 }
@@ -100,14 +104,16 @@ function validQuantity(value: string): number | undefined {
 
 /** Only explicit quantity columns count; package sizes and product codes do not. */
 function inlineQuantity(label: string): number | undefined {
-  const unitFirst = label.match(/\s+[¥￥\\]?\d+(?:\s*,\s*\d+)*\s*[×xX]\s*(\d+)\s*$/);
+  const unitFirst = label.match(
+    /\s+(?:(?:単\s*価?|@)\s*[:：]?\s*)?[¥￥\\]?\d+(?:\s*,\s*\d+)*\s*[×xX]\s*(\d+)\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)?\s*$/,
+  );
   if (unitFirst) return validQuantity(unitFirst[1]);
-  const quantityFirst = label.match(/\s+(\d+\s*(?:コ|個|点|皿|本|杯|人前)\s*.*)$/);
+  const quantityFirst = label.match(/\s+(\d+\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)\s*.*)$/);
   if (quantityFirst) {
     const detail = quantityPrice(quantityFirst[1]);
     if (detail) return detail.quantity;
   }
-  const count = label.match(/\s+(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ))\s*$/);
+  const count = label.match(/\s+(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ|箱|袋|名))\s*$/);
   return count ? validQuantity(count[1] ?? count[2]) : undefined;
 }
 
@@ -115,8 +121,32 @@ type QuantityPrice = { quantity?: number; calculated?: number; explicit?: number
 
 /** A supermarket often prints the quantity, unit price, and row total below its name. */
 function quantityPrice(line: string): QuantityPrice | null {
+  // Unit-price-first rows are also common: @600 × 2杯 [1,200].
+  const hasUnitEvidence =
+    /^(?:単\s*価?|@|[¥￥\\])/.test(line) ||
+    /[×xX]\s*\d+\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)(?:\s|[¥￥\\]|$)/.test(line);
+  const unitFirst =
+    hasUnitEvidence &&
+    line.match(
+      /^(?:(?:単\s*価?|@)\s*[:：]?\s*)?[¥￥\\]?(\d+(?:\s*,\s*\d+)*)(?:\s*円)?\s*[×xX]\s*(\d+)\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)?(?=\s|[¥￥\\]|$)(.*)$/,
+    );
+  if (unitFirst) {
+    const quantity = validQuantity(unitFirst[2]);
+    const remainder = unitFirst[3].trim();
+    const row = remainder ? priceAtEnd(remainder) : undefined;
+    if (remainder && (!row || row.label || row.amount < 0)) return null;
+    const calculated = Number(unitFirst[1].replace(/[\s,]/g, '')) * Number(unitFirst[2]);
+    return {
+      quantity,
+      calculated:
+        quantity && Number.isSafeInteger(calculated) && calculated <= MAX_AMOUNT
+          ? calculated
+          : undefined,
+      explicit: row?.amount,
+    };
+  }
   const prefix = line.match(
-    /^(\d+)\s*(?:コ|個|点|皿|本|杯|人前)\s*(?:(?:[×xXメ]\s*)+(?:(?:単\s*価?|B)\s*[:：]?\s*)?|単\s*価?\s*[:：]?\s*)/,
+    /^(\d+)\s*(?:コ|個|点|皿|本|杯|人前|箱|袋|名)\s*(?:(?:[×xXメ]\s*)+(?:(?:単\s*価?|B|@)\s*[:：]?\s*)?|単\s*価?\s*[:：]?\s*)/,
   );
   if (!prefix) return null;
   const quantity = validQuantity(prefix[1]);
@@ -141,14 +171,14 @@ function quantityPrice(line: string): QuantityPrice | null {
 }
 
 function isQuantityLine(line: string): boolean {
-  return /^(?:[×xX]\s*\d+|\d+\s*(?:点|個|皿|本|杯|人前|コ)|(?:数量|単価)\s*[:：]?\s*\d+)$/.test(
+  return /^(?:[×xX]\s*\d+|\d+\s*(?:点|個|皿|本|杯|人前|コ|箱|袋|名)|(?:数量|単価)\s*[:：]?\s*\d+)$/.test(
     line,
   );
 }
 
 function standaloneQuantity(line: string): number | undefined {
   const count = line.match(
-    /^(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ)|数量\s*[:：]?\s*(\d+))$/,
+    /^(?:[×xX]\s*(\d+)|(\d+)\s*(?:点|個|皿|本|杯|人前|コ|箱|袋|名)|数量\s*[:：]?\s*(\d+))$/,
   );
   return count ? validQuantity(count[1] ?? count[2] ?? count[3]) : undefined;
 }
@@ -223,12 +253,16 @@ export function parseReceipt(text: string): ParsedReceipt {
     const label = price?.label || pending || '';
 
     if (isTotal(line) || (price && !price.label && pending && isTotal(pending))) {
-      if (price && price.amount >= 0) {
+      if (
+        price &&
+        price.amount >= 0 &&
+        (isTotalLabel(price.label) || (!price.label && pending && isTotalLabel(pending)))
+      ) {
         total = price.amount;
         finishedItems = items.length > 0;
         clearPending();
       } else {
-        pending = line;
+        pending = isTotalLabel(line) ? line : undefined;
       }
       continue;
     }

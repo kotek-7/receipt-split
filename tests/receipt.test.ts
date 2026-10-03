@@ -428,3 +428,70 @@ A まとめ値引 5% -23
   assert.equal(receipt.total, 2973);
   assert.ok(receipt.items.every((item) => !/^\d+(?:コ|個|点)/.test(item.name)));
 });
+
+test('at-sign unit prices belong to the preceding drink or purchased package', () => {
+  assert.deepEqual(
+    quantities(
+      '生ビール ¥1,740\n3杯 X @¥580\n豆大福 4個入 ¥1,940\n2箱 X @¥970\n焼きおにぎり ¥460\n2個 x @¥230',
+    ),
+    [
+      { name: '生ビール', amount: 1740, quantity: 3, splitMode: 'quantity' },
+      { name: '豆大福 4個入', amount: 1940, quantity: 2, splitMode: 'quantity' },
+      { name: '焼きおにぎり', amount: 460, quantity: 2, splitMode: 'quantity' },
+    ],
+  );
+  assert.deepEqual(
+    entries('3杯 X @¥580\n2箱 X @¥970'),
+    [],
+    'orphan quantity rows cannot become products',
+  );
+});
+
+test('at-sign and unit-price-first quantity rows preserve printed totals', () => {
+  for (const row of ['3杯 X @¥580', '@¥580 × 3杯', '単価 580円 × 3杯', '¥580 × 3']) {
+    assert.deepEqual(
+      quantities(`ビール ¥1700\n${row}\n枝豆 ¥400`),
+      [
+        { name: 'ビール', amount: 1700, quantity: 3, splitMode: 'quantity' },
+        { name: '枝豆', amount: 400, quantity: undefined, splitMode: undefined },
+      ],
+      row,
+    );
+    assert.deepEqual(entries(`ビール\n${row}\n¥1700`), [{ name: 'ビール', amount: 1700 }], row);
+    assert.deepEqual(entries(`ビール\n${row} ¥1700`), [{ name: 'ビール', amount: 1700 }], row);
+    assert.deepEqual(entries(`ビール\n${row}`), [{ name: 'ビール', amount: 1740 }], row);
+  }
+});
+
+test('inline at-sign quantity columns keep names and avoid multiplying a row total twice', () => {
+  for (const row of ['ビール 3杯 X @¥580 ¥1700', 'ビール @¥580 × 3杯 ¥1700']) {
+    assert.deepEqual(
+      quantities(row),
+      [{ name: 'ビール', amount: 1700, quantity: 3, splitMode: 'quantity' }],
+      row,
+    );
+  }
+  assert.deepEqual(quantities('紅茶 3袋入 ¥300\nビール350ml 6本パック ¥1200'), [
+    { name: '紅茶 3袋入', amount: 300, quantity: undefined, splitMode: undefined },
+    { name: 'ビール350ml 6本パック', amount: 1200, quantity: undefined, splitMode: undefined },
+  ]);
+});
+
+test('tax-qualified payable totals are totals and payment detail lines cannot replace them', () => {
+  const parsed = parseReceipt(
+    '料理 ¥1000\n飲み物 ¥1000\n小計 ¥2000\n合計(税込) ¥2240\nお支払 コード決済 ¥240',
+  );
+  assert.equal(parsed.total, 2240);
+  assert.equal(parsed.items.length, 2);
+  assert.equal(parseReceipt('料理 ¥1000\n合計 (税込み)\n¥1100').total, 1100);
+  for (const payment of ['コード決済', 'PayPay', 'GRコード(PayPay等)', 'Suica', 'MIRAI CARD']) {
+    const result = parseReceipt(`料理 ¥1000\n${payment} ¥1200\n小計 ¥1000`);
+    assert.deepEqual(
+      result.items.map(({ name, amount }) => ({ name, amount })),
+      [{ name: '料理', amount: 1000 }],
+      payment,
+    );
+    assert.equal(result.total, 1000, payment);
+  }
+  assert.deepEqual(entries('Cardamom tea ¥500'), [{ name: 'Cardamom tea', amount: 500 }]);
+});
