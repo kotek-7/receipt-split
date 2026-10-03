@@ -159,18 +159,14 @@ function isOperation(method: string, action?: string, memberId?: string): boolea
 }
 
 export class ReceiptRoom extends DurableObject<Env> {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, body TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS sessions (
-        token_hash TEXT PRIMARY KEY,
-        member_id TEXT NOT NULL UNIQUE
-      );
-    `);
-  }
-
   private roomById(id: string): Room {
+    // Unknown shared links must not create persistent storage in a new object.
+    if (
+      !this.ctx.storage.sql
+        .exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'rooms'")
+        .toArray().length
+    )
+      throw new ApiError(404, notFound);
     const rows = this.ctx.storage.sql
       .exec<{ body: string }>('SELECT body FROM rooms WHERE id = ?', id)
       .toArray();
@@ -231,6 +227,13 @@ export class ReceiptRoom extends DurableObject<Env> {
       const result = this.ctx.storage.transactionSync<Room | SessionResponse>(() => {
         if (creating) {
           const input = parse(createSchema, body, createError);
+          this.ctx.storage.sql.exec(`
+            CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, body TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS sessions (
+              token_hash TEXT PRIMARY KEY,
+              member_id TEXT NOT NULL UNIQUE
+            );
+          `);
           if (this.ctx.storage.sql.exec('SELECT id FROM rooms').toArray().length)
             throw new ApiError(409, 'この割り勘はすでに作成されています。');
           const now = new Date().toISOString();
