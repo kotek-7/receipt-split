@@ -58,4 +58,5 @@ export interface ParsedReceipt {
   total: number;
   title: string;
   rawText: string;
+  warnings?: string[];
 }

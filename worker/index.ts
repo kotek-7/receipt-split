@@ -1,5 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
+import { RECEIPT_AI_MODEL } from '../shared/receipt-ai';
+import { scanReceiptRequest } from '../server/receipt-scan';
 import {
   calculateSettlement,
   getItemQuantity,
@@ -11,6 +13,8 @@ import type { Identity, Room, SessionResponse } from '../shared/types';
 export interface Env {
   ROOMS: DurableObjectNamespace<ReceiptRoom>;
   ASSETS: Fetcher;
+  AI?: Ai;
+  RECEIPT_SCAN_LIMITER?: RateLimit;
 }
 
 const nameSchema = z.string().trim().min(1).max(24);
@@ -397,6 +401,27 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true });
+      if (url.pathname === '/api/receipt-reader' && request.method === 'GET') {
+        return json({ ai: Boolean(env.AI && env.RECEIPT_SCAN_LIMITER) });
+      }
+      if (url.pathname === '/api/receipt-scan' && request.method === 'POST') {
+        const ai = env.AI;
+        const limiter = env.RECEIPT_SCAN_LIMITER;
+        return scanReceiptRequest(request, {
+          run:
+            ai && limiter
+              ? (input, signal) => ai.run(RECEIPT_AI_MODEL, input, { signal })
+              : undefined,
+          allow: limiter
+            ? async () =>
+                (
+                  await limiter.limit({
+                    key: `receipt-scan:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`,
+                  })
+                ).success
+            : undefined,
+        });
+      }
       if (url.pathname === '/api/rooms' && request.method === 'POST') {
         const input = parse(createSchema, await readJson(request), createError);
         const roomId = randomString();

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import express, { type ErrorRequestHandler, type Request } from 'express';
 import { z } from 'zod';
+import { scanReceiptRequest, type ReceiptScanOptions } from './receipt-scan';
 import {
   calculateSettlement,
   getItemQuantity,
@@ -86,9 +87,10 @@ function normalizedName(name: string): string {
 export interface AppOptions {
   dbPath: string;
   serveFrontend?: boolean;
+  receiptScan?: ReceiptScanOptions;
 }
 
-export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
+export async function createApp({ dbPath, serveFrontend = false, receiptScan = {} }: AppOptions) {
   if (dbPath !== ':memory:') mkdirSync(path.dirname(dbPath), { recursive: true });
   const database = new DatabaseSync(dbPath);
   database.exec(`
@@ -172,6 +174,57 @@ export async function createApp({ dbPath, serveFrontend = false }: AppOptions) {
     response.set('X-Content-Type-Options', 'nosniff');
     next();
   });
+  app.get('/api/receipt-reader', (_request, response) =>
+    response.json({ ai: Boolean(receiptScan.run) }),
+  );
+  const rawReceipt = express.raw({ type: () => true, limit: '8mb' });
+  app.post(
+    '/api/receipt-scan',
+    (request, response, next) => {
+      rawReceipt(request, response, (error) => {
+        if (error) {
+          response
+            .status(error.type === 'entity.too.large' ? 413 : 400)
+            .json({ error: '画像を読み込めませんでした。小さい画像を選び直してください。' });
+          return;
+        }
+        next();
+      });
+    },
+    async (request, response) => {
+      const controller = new AbortController();
+      const onClose = () => {
+        if (!response.writableEnded) controller.abort();
+      };
+      request.once('aborted', onClose);
+      response.once('close', onClose);
+      try {
+        const headers = new Headers();
+        for (const name of ['Origin', 'Content-Type', 'Sec-Fetch-Site']) {
+          const value = request.get(name);
+          if (value) headers.set(name, value);
+        }
+        const bytes = Buffer.isBuffer(request.body)
+          ? new Uint8Array(request.body)
+          : new Uint8Array();
+        const scanRequest = new Request(
+          `${request.protocol}://${request.get('host')}/api/receipt-scan`,
+          {
+            method: 'POST',
+            headers,
+            body: bytes,
+            signal: controller.signal,
+          },
+        );
+        const result = await scanReceiptRequest(scanRequest, receiptScan);
+        result.headers.forEach((value, name) => response.set(name, value));
+        response.status(result.status).send(await result.text());
+      } finally {
+        request.off('aborted', onClose);
+        response.off('close', onClose);
+      }
+    },
+  );
   app.use(express.json({ limit: '128kb' }));
 
   app.get('/api/health', (_request, response) => response.json({ ok: true }));
